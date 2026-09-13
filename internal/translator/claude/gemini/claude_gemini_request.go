@@ -113,11 +113,9 @@ func convertGeminiRequestToClaude(modelName string, inputRawJSON []byte, stream 
 		if thinkingConfig := genConfig.Get("thinkingConfig"); thinkingConfig.Exists() && thinkingConfig.IsObject() {
 			mi := registry.LookupModelInfo(modelName, "claude")
 			supportsAdaptive := mi != nil && mi.Thinking != nil && len(mi.Thinking.Levels) > 0
-			supportsMax := supportsAdaptive && thinking.HasLevel(mi.Thinking.Levels, string(thinking.LevelMax))
 			supportsDynamic := supportsAdaptive && mi.Thinking.DynamicAllowed
 
-			// MapToClaudeEffort normalizes levels (e.g. minimal→low, xhigh→high) to avoid
-			// validation errors since validate treats same-provider unsupported levels as errors.
+			// Preserve advertised adaptive levels; map legacy aliases only when needed.
 			thinkingLevel := thinkingConfig.Get("thinkingLevel")
 			if !thinkingLevel.Exists() {
 				thinkingLevel = thinkingConfig.Get("thinking_level")
@@ -136,10 +134,8 @@ func convertGeminiRequestToClaude(modelName string, inputRawJSON []byte, stream 
 						out, _ = sjson.DeleteBytes(out, "thinking.budget_tokens")
 						out, _ = sjson.DeleteBytes(out, "output_config.effort")
 					default:
-						if !thinking.HasLevel(mi.Thinking.Levels, level) {
-							if mapped, ok := thinking.MapToClaudeEffort(level, supportsMax); ok {
-								level = mapped
-							}
+						if mapped, ok := thinking.MapToClaudeEffort(level, mi.Thinking.Levels); ok {
+							level = mapped
 						}
 						out, _ = sjson.SetBytes(out, "thinking.type", "adaptive")
 						out, _ = sjson.DeleteBytes(out, "thinking.budget_tokens")
@@ -181,10 +177,8 @@ func convertGeminiRequestToClaude(modelName string, inputRawJSON []byte, stream 
 						default:
 							level, ok := thinking.ConvertBudgetToLevel(budget)
 							if ok {
-								if !thinking.HasLevel(mi.Thinking.Levels, level) {
-									if mapped, okM := thinking.MapToClaudeEffort(level, supportsMax); okM {
-										level = mapped
-									}
+								if mapped, okM := thinking.MapToClaudeEffort(level, mi.Thinking.Levels); okM {
+									level = mapped
 								}
 								out, _ = sjson.SetBytes(out, "thinking.type", "adaptive")
 								out, _ = sjson.DeleteBytes(out, "thinking.budget_tokens")
