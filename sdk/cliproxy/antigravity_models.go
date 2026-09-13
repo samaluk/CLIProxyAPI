@@ -81,7 +81,13 @@ var (
 	antigravityProbeSlots       = make(chan struct{}, modelRegistrationMaxWorkersPerCategory)
 )
 
+type antigravityModelLimits struct {
+	ContextLength       int `json:"maxTokens"`
+	MaxCompletionTokens int `json:"maxOutputTokens"`
+}
+
 type antigravityModelCapabilityHints struct {
+	ModelLimits       map[string]antigravityModelLimits
 	WebSearchModelIDs map[string]struct{}
 	// Nil means unknown; an empty non-nil set is an authoritative empty catalog.
 	ModelIDs map[string]struct{}
@@ -89,7 +95,7 @@ type antigravityModelCapabilityHints struct {
 }
 
 func (h antigravityModelCapabilityHints) clone() antigravityModelCapabilityHints {
-	return antigravityModelCapabilityHints{WebSearchModelIDs: maps.Clone(h.WebSearchModelIDs), ModelIDs: maps.Clone(h.ModelIDs), revision: h.revision}
+	return antigravityModelCapabilityHints{WebSearchModelIDs: maps.Clone(h.WebSearchModelIDs), ModelIDs: maps.Clone(h.ModelIDs), ModelLimits: maps.Clone(h.ModelLimits), revision: h.revision}
 }
 
 // antigravityCapabilityKey isolates catalogs by account, project, route and client
@@ -435,14 +441,26 @@ func parseAntigravityModelCapabilityHints(body []byte) (antigravityModelCapabili
 	if !ok {
 		return antigravityModelCapabilityHints{}, false
 	}
-	return antigravityModelCapabilityHints{
-		ModelIDs:          hints.ModelIDs,
-		WebSearchModelIDs: hints.WebSearchModelIDs,
-	}, true
+	var parsed struct {
+		Models map[string]json.RawMessage `json:"models"`
+	}
+	if json.Unmarshal(body, &parsed) != nil {
+		return antigravityModelCapabilityHints{}, false
+	}
+	limits := make(map[string]antigravityModelLimits, len(parsed.Models))
+	for id, raw := range parsed.Models {
+		var value antigravityModelLimits
+		if json.Unmarshal(raw, &value) == nil && (value.ContextLength > 0 || value.MaxCompletionTokens > 0) {
+			if normalized := normalizeAntigravityFetchedModelID(id); normalized != "" {
+				limits[normalized] = value
+			}
+		}
+	}
+	return antigravityModelCapabilityHints{WebSearchModelIDs: hints.WebSearchModelIDs, ModelIDs: hints.ModelIDs, ModelLimits: limits}, true
 }
 
 func applyAntigravityFetchedModelCapabilities(models []*ModelInfo, hints antigravityModelCapabilityHints) []*ModelInfo {
-	if len(models) == 0 || len(hints.WebSearchModelIDs) == 0 {
+	if len(models) == 0 {
 		return models
 	}
 
@@ -453,6 +471,13 @@ func applyAntigravityFetchedModelCapabilities(models []*ModelInfo, hints antigra
 		modelID := normalizeAntigravityFetchedModelID(model.ID)
 		if _, ok := hints.WebSearchModelIDs[modelID]; ok {
 			model.SupportsWebSearch = true
+		}
+		limits := hints.ModelLimits[modelID]
+		if limits.ContextLength > 0 {
+			model.ContextLength = limits.ContextLength
+		}
+		if limits.MaxCompletionTokens > 0 {
+			model.MaxCompletionTokens = limits.MaxCompletionTokens
 		}
 	}
 	return models
