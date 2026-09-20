@@ -133,6 +133,14 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
+// ErrorCode exposes the machine-readable code to scheduler policy handling.
+func (e *Error) ErrorCode() string {
+	if e == nil {
+		return ""
+	}
+	return e.Code
+}
+
 // StatusCode returns the HTTP status code embedded in the Error, or 0 if unset.
 func (e *Error) StatusCode() int {
 	if e == nil {

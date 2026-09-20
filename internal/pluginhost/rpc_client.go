@@ -56,6 +56,10 @@ func (e rpcError) StatusCode() int {
 	return e.statusCode
 }
 
+func (e rpcError) ErrorCode() string {
+	return e.Code
+}
+
 type rpcResponseNormalizer struct {
 	*rpcPluginAdapter
 	method string
