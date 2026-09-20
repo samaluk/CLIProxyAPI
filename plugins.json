@@ -1,0 +1,131 @@
+{
+  "schema_version": 2,
+  "plugins": [
+    {
+      "id": "commandcode",
+      "name": "CommandCode reviewed",
+      "description": "Configured model capabilities and exact subscription routes.",
+      "author": "samaluk",
+      "version": "0.3.2-review.b4df808.20260920",
+      "repository": "https://github.com/samaluk/cpa-plugin-commandcode",
+      "homepage": "https://github.com/samaluk/cpa-plugin-commandcode",
+      "tags": [
+        "reviewed",
+        "macos-arm64"
+      ],
+      "install": {
+        "type": "direct",
+        "artifacts": [
+          {
+            "goos": "darwin",
+            "goarch": "arm64",
+            "url": "https://github.com/samaluk/cpa-plugin-commandcode/releases/download/v0.3.2-review.b4df808.20260920/commandcode_0.3.2-review.b4df808.20260920_darwin_arm64.zip",
+            "sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2",
+            "size": 3016294
+          }
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.3.2-review.b4df808.20260920",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/cpa-plugin-commandcode/releases/download/v0.3.2-review.b4df808.20260920/commandcode_0.3.2-review.b4df808.20260920_darwin_arm64.zip",
+                "sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2",
+                "size": 3016294
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "opencode-go-cliproxyapi",
+      "name": "OpenCode Go reviewed",
+      "description": "Catalog and protocol compatibility, including DeepSeek tool reasoning.",
+      "author": "samaluk",
+      "version": "0.1.7-review.d384920.20260920",
+      "repository": "https://github.com/samaluk/opencode-go-cliproxyapi",
+      "homepage": "https://github.com/samaluk/opencode-go-cliproxyapi",
+      "tags": [
+        "reviewed",
+        "macos-arm64"
+      ],
+      "install": {
+        "type": "direct",
+        "artifacts": [
+          {
+            "goos": "darwin",
+            "goarch": "arm64",
+            "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.7-review.d384920.20260920/opencode-go-cliproxyapi_0.1.7-review.d384920.20260920_darwin_arm64.zip",
+            "sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e",
+            "size": 2208696
+          }
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.1.7-review.d384920.20260920",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.7-review.d384920.20260920/opencode-go-cliproxyapi_0.1.7-review.d384920.20260920_darwin_arm64.zip",
+                "sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e",
+                "size": 2208696
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "key-account-bind",
+      "name": "Account binding reviewed",
+      "description": "Account scopes and recovery after host-eligible transient credential failures.",
+      "author": "samaluk",
+      "version": "0.3.0-review.6330658.20260920",
+      "repository": "https://github.com/samaluk/cpa-key-account-bind",
+      "homepage": "https://github.com/samaluk/cpa-key-account-bind",
+      "tags": [
+        "reviewed",
+        "macos-arm64"
+      ],
+      "install": {
+        "type": "direct",
+        "artifacts": [
+          {
+            "goos": "darwin",
+            "goarch": "arm64",
+            "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.6330658.20260920/key-account-bind_0.3.0-review.6330658.20260920_darwin_arm64.zip",
+            "sha256": "12b5d88987ccd6654145bc2557bcfc44cdf7d94b6b499b6f1a7ff79b53bd3611",
+            "size": 2045773
+          }
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.3.0-review.6330658.20260920",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.6330658.20260920/key-account-bind_0.3.0-review.6330658.20260920_darwin_arm64.zip",
+                "sha256": "12b5d88987ccd6654145bc2557bcfc44cdf7d94b6b499b6f1a7ff79b53bd3611",
+                "size": 2045773
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

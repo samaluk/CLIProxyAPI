@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-20",
+  "platform": "darwin/arm64",
+  "core": {
+    "repository": "samaluk/CLIProxyAPI",
+    "commit": "445f61ac296080460ae6a07b0b09cf2afca82c8a",
+    "tag": "v7.3.9-review.445f61a",
+    "base": "upstream/dev",
+    "manifest": "core.json"
+  },
+  "plugins": [
+    {
+      "id": "commandcode",
+      "repository": "https://github.com/samaluk/cpa-plugin-commandcode",
+      "commit": "b4df808f4652091c435c227f91712e54078471c0",
+      "version": "0.3.2-review.b4df808.20260920",
+      "library_sha256": "079290a5248bd417d30df93f1edf79079faf3c95179d88598e12727f57f6c6bf",
+      "archive_sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2"
+    },
+    {
+      "id": "opencode-go-cliproxyapi",
+      "repository": "https://github.com/samaluk/opencode-go-cliproxyapi",
+      "commit": "d3849203ccc00ae5152b20a9f929a5d686208a72",
+      "version": "0.1.7-review.d384920.20260920",
+      "library_sha256": "ad0da0e3b436de24d21b4b83843173604a7ca32a8ea1556e81140c21072a0361",
+      "archive_sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e"
+    },
+    {
+      "id": "key-account-bind",
+      "repository": "https://github.com/samaluk/cpa-key-account-bind",
+      "commit": "633065868f98d1298c86702c5e9dde6072fd325d",
+      "version": "0.3.0-review.6330658.20260920",
+      "library_sha256": "5b8ebe7e5df636bdeaaea3a3b12a5d4037e1673a8fc0f3035dcb1b42e80be4c8",
+      "archive_sha256": "12b5d88987ccd6654145bc2557bcfc44cdf7d94b6b499b6f1a7ff79b53bd3611"
+    }
+  ],
+  "pi": {
+    "package": "@router-for-me/pi-cliproxyapi-provider",
+    "version": "1.4.18",
+    "source": "npm",
+    "fork_required": false
+  },
+  "notes": [
+    "Only advertised platform artifacts were tested.",
+    "T3 and the harness applications keep their vendor update channels.",
+    "Native proxy plugins and Pi extensions have separate package managers.",
+    "The GUI fork requires a local build until a trusted signed distribution or equivalent upstream release exists."
+  ]
+}
