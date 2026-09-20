@@ -46,5 +46,12 @@
     "T3 and the harness applications keep their vendor update channels.",
     "Native proxy plugins and Pi extensions have separate package managers.",
     "The GUI fork requires a local build until a trusted signed distribution or equivalent upstream release exists."
-  ]
+  ],
+  "gui": {
+    "repository": "samaluk/EasyCLIProxyAPI",
+    "branch": "review/reviewed-core-updates",
+    "commit": "ccf4572e6dbd9e94ca52a94bbdc8e9b4b9fb7372",
+    "binary_sha256": "c43567cacde842547952b10913519fc40a83d109a091433b9bb93365afc82bfd",
+    "distribution": "local ad-hoc signed build; automatic app update unavailable"
+  }
 }
