@@ -725,6 +725,13 @@ type modelCompatEntry interface {
 	GetIsCompat() bool
 }
 
+type modelMetadataEntry interface {
+	GetCanonicalModelID() string
+	GetMaxCompletionTokens() int
+	GetInputModalities() []string
+	GetOutputModalities() []string
+}
+
 func buildConfiguredModelInfo(model modelEntry, ownedBy, modelType string, created int64, fallbackDisplayName string, userDefined bool) *ModelInfo {
 	name := strings.TrimSpace(model.GetName())
 	alias := strings.TrimSpace(model.GetAlias())
@@ -763,6 +770,17 @@ func buildConfiguredModelInfo(model modelEntry, ownedBy, modelType string, creat
 	}
 	if compatModel, okCompat := any(model).(modelCompatEntry); okCompat {
 		info.IsCompat = compatModel.GetIsCompat()
+	}
+	if metadataModel, okMetadata := any(model).(modelMetadataEntry); okMetadata {
+		if canonicalID := strings.TrimSpace(metadataModel.GetCanonicalModelID()); canonicalID != "" {
+			info.MetadataModelID = canonicalID
+		}
+		if maxCompletionTokens := metadataModel.GetMaxCompletionTokens(); maxCompletionTokens > 0 {
+			info.MaxCompletionTokens = maxCompletionTokens
+		}
+		info.SupportedInputModalities = normalizeCompatConfigModalities(metadataModel.GetInputModalities())
+		info.SupportedOutputModalities = normalizeCompatConfigModalities(metadataModel.GetOutputModalities())
+		info.ExplicitInputModalities = len(info.SupportedInputModalities) > 0
 	}
 	return info
 }
