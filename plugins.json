@@ -88,9 +88,9 @@
     {
       "id": "key-account-bind",
       "name": "Account binding reviewed",
-      "description": "Account scopes and recovery after host-eligible transient credential failures.",
+      "description": "Account scopes, transient credential recovery and terminal scope-denial errors.",
       "author": "samaluk",
-      "version": "0.3.0-review.6330658.20260920",
+      "version": "0.3.0-review.e87054b.20260920",
       "repository": "https://github.com/samaluk/cpa-key-account-bind",
       "homepage": "https://github.com/samaluk/cpa-key-account-bind",
       "tags": [
@@ -103,13 +103,28 @@
           {
             "goos": "darwin",
             "goarch": "arm64",
-            "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.6330658.20260920/key-account-bind_0.3.0-review.6330658.20260920_darwin_arm64.zip",
-            "sha256": "12b5d88987ccd6654145bc2557bcfc44cdf7d94b6b499b6f1a7ff79b53bd3611",
-            "size": 2045773
+            "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.e87054b.20260920/key-account-bind_0.3.0-review.e87054b.20260920_darwin_arm64.zip",
+            "sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3",
+            "size": 2055274
           }
         ]
       },
       "versions": [
+        {
+          "version": "0.3.0-review.e87054b.20260920",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.e87054b.20260920/key-account-bind_0.3.0-review.e87054b.20260920_darwin_arm64.zip",
+                "sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3",
+                "size": 2055274
+              }
+            ]
+          }
+        },
         {
           "version": "0.3.0-review.6330658.20260920",
           "install": {

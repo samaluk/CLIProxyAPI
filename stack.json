@@ -4,8 +4,8 @@
   "platform": "darwin/arm64",
   "core": {
     "repository": "samaluk/CLIProxyAPI",
-    "commit": "445f61ac296080460ae6a07b0b09cf2afca82c8a",
-    "tag": "v7.3.9-review.445f61a",
+    "commit": "7f1aa2e649da3f948063d4fde78cb51834413fa6",
+    "tag": "v7.3.9-review.7f1aa2e",
     "base": "upstream/dev",
     "manifest": "core.json"
   },
@@ -29,10 +29,10 @@
     {
       "id": "key-account-bind",
       "repository": "https://github.com/samaluk/cpa-key-account-bind",
-      "commit": "633065868f98d1298c86702c5e9dde6072fd325d",
-      "version": "0.3.0-review.6330658.20260920",
-      "library_sha256": "5b8ebe7e5df636bdeaaea3a3b12a5d4037e1673a8fc0f3035dcb1b42e80be4c8",
-      "archive_sha256": "12b5d88987ccd6654145bc2557bcfc44cdf7d94b6b499b6f1a7ff79b53bd3611"
+      "commit": "e87054b44a2ca099f87622e6fabc2bfdb1e48750",
+      "version": "0.3.0-review.e87054b.20260920",
+      "library_sha256": "b6cdadd22abfcb044c2a27fa6e5a7bdb43d781848527141e117b3969d3d2ac2d",
+      "archive_sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3"
     }
   ],
   "pi": {
@@ -45,7 +45,8 @@
     "Only advertised platform artifacts were tested.",
     "T3 and the harness applications keep their vendor update channels.",
     "Native proxy plugins and Pi extensions have separate package managers.",
-    "The GUI fork requires a local build until a trusted signed distribution or equivalent upstream release exists."
+    "The GUI fork requires a local build until a trusted signed distribution or equivalent upstream release exists.",
+    "Automatic release workflows are disabled on the core and binding forks to protect checksum-pinned reviewed assets; normal CI remains enabled."
   ],
   "gui": {
     "repository": "samaluk/EasyCLIProxyAPI",
