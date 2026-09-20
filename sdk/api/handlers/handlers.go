@@ -80,6 +80,16 @@ func BuildErrorResponseBodyWithError(status int, errText string, err error) []by
 	}
 
 	trimmed := strings.TrimSpace(errText)
+	if code, denied := coreauth.RequestPolicyErrorCode(err); denied {
+		retryable := false
+		payload, errMarshal := json.Marshal(ErrorResponse{Error: ErrorDetail{
+			Message: errText, Type: "permission_error", Code: code, Retryable: &retryable,
+		}})
+		if errMarshal != nil {
+			return []byte(fmt.Sprintf(`{"error":{"message":%q,"type":"permission_error","code":%q,"retryable":false}}`, errText, code))
+		}
+		return payload
+	}
 
 	if coreauth.IsTerminalAuthError(err) {
 		message := errText
