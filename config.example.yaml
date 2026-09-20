@@ -518,8 +518,12 @@ nonstream-keepalive-interval: 0
 #     models:
 #       - name: "gpt-5-codex"   # upstream model name
 #         alias: "codex-latest" # client alias mapped to the upstream model
+#         canonical-model-id: "gpt-5-codex" # optional metadata identity; does not change upstream name or alias
 #         display-name: "Codex Latest" # optional catalog display name
 #         max-context-length: 1048576 # optional: override Codex client context window metadata
+#         max-completion-tokens: 128000 # optional: declared output ceiling; omission leaves it unknown
+#         input-modalities: [text, image] # optional: declare only inputs supported by this route
+#         output-modalities: [text] # optional: omission leaves outputs unknown
 #         force-mapping: true    # optional: rewrite response model fields back to the alias
 #         # When true and codex.optimize-multi-agent-v2 is also true, convert Codex
 #         # MultiAgentV2 agent_message items into portable Responses message/user input
