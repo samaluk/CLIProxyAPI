@@ -88,6 +88,10 @@ func (e rpcError) SafeResponseHeaders() http.Header {
 	return http.Header{"Retry-After": []string{strconv.FormatInt(int64(*retryAfter/time.Second), 10)}}
 }
 
+func (e rpcError) ErrorCode() string {
+	return e.Code
+}
+
 type rpcResponseNormalizer struct {
 	*rpcPluginAdapter
 	method string
