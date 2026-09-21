@@ -42,6 +42,7 @@ type Plugin struct {
 	Description  string      `json:"description"`
 	Author       string      `json:"author"`
 	Version      string      `json:"version"`
+	Revision     *uint64     `json:"revision,omitempty"`
 	Versions     []Version   `json:"versions,omitempty"`
 	Repository   string      `json:"repository,omitempty"`
 	Logo         string      `json:"logo,omitempty"`
@@ -53,8 +54,9 @@ type Plugin struct {
 }
 
 type Version struct {
-	Version string      `json:"version"`
-	Install InstallPlan `json:"install,omitempty"`
+	Version  string      `json:"version"`
+	Revision *uint64     `json:"revision,omitempty"`
+	Install  InstallPlan `json:"install,omitempty"`
 }
 
 type InstallPlan struct {
@@ -185,6 +187,9 @@ func ValidateRegistry(registry Registry) error {
 }
 
 func ValidatePlugin(plugin Plugin) error {
+	if errRevision := validateRevision(plugin.Revision); errRevision != nil {
+		return errRevision
+	}
 	required := map[string]string{
 		"id":          plugin.ID,
 		"name":        plugin.Name,
@@ -235,6 +240,9 @@ func ValidatePluginVersions(plugin Plugin) error {
 	}
 	seen := make(map[string]struct{}, len(plugin.Versions))
 	for index, version := range plugin.Versions {
+		if errRevision := validateRevision(version.Revision); errRevision != nil {
+			return fmt.Errorf("versions[%d]: %w", index, errRevision)
+		}
 		version.Version = normalizeVersion(version.Version)
 		if !validPluginVersion(version.Version) {
 			return fmt.Errorf("versions[%d]: invalid plugin version %q", index, version.Version)
