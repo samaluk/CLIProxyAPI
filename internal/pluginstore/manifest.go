@@ -7,6 +7,7 @@ import (
 )
 
 type Manifest struct {
+	Revision      *uint64                 `yaml:"revision,omitempty" json:"revision,omitempty"`
 	SchemaVersion int                     `yaml:"schema-version,omitempty" json:"schema_version,omitempty"`
 	ID            string                  `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string                  `yaml:"name,omitempty" json:"name,omitempty"`
@@ -48,6 +49,7 @@ func ManifestFromPlugin(source Source, plugin Plugin) (Manifest, error) {
 		manifest := manifestFromPlugin(source, plugin, Manifest{
 			SchemaVersion: SchemaVersionV2,
 			Version:       strings.TrimSpace(plugin.Version),
+			Revision:      plugin.Revision,
 			Install:       NormalizeInstallPlan(plugin.Install),
 		})
 		if errValidate := manifest.Validate(); errValidate != nil {
@@ -84,6 +86,7 @@ func (m Manifest) Plugin() Plugin {
 		Description: strings.TrimSpace(m.Description),
 		Author:      strings.TrimSpace(m.Author),
 		Version:     strings.TrimSpace(m.Version),
+		Revision:    m.Revision,
 		Repository:  strings.TrimSpace(m.Repository),
 		Logo:        strings.TrimSpace(m.Logo),
 		Homepage:    strings.TrimSpace(m.Homepage),
@@ -103,6 +106,9 @@ func (m Manifest) InstallType() string {
 }
 
 func (m Manifest) Validate() error {
+	if errRevision := validateRevision(m.Revision); errRevision != nil {
+		return errRevision
+	}
 	version := strings.TrimSpace(m.Version)
 	if version == "" {
 		return fmt.Errorf("missing required field version")

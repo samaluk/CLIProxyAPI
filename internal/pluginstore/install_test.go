@@ -16,6 +16,44 @@ import (
 	"testing"
 )
 
+func TestInstallArchiveCommitGuardRunsBeforeMutationAndReleases(t *testing.T) {
+	for _, blocked := range []bool{true, false} {
+		root := t.TempDir()
+		active, released := false, false
+		guardError := errors.New("installed revision changed")
+		result, errInstall := InstallArchive(makeZip(t, map[string]string{"sample-provider.dylib": "library-data"}), testPlugin(), InstallOptions{
+			PluginsDir: root, GOOS: "darwin", GOARCH: "arm64",
+			BeforeCommit: func() (func(), error) {
+				if blocked {
+					return nil, guardError
+				}
+				active = true
+				return func() { active = false; released = true }, nil
+			},
+		})
+		if blocked {
+			if !errors.Is(errInstall, guardError) {
+				t.Fatalf("error = %v; want guard error", errInstall)
+			}
+			entries, errRead := os.ReadDir(root)
+			if errRead != nil || len(entries) != 0 {
+				t.Fatalf("rejected commit changed directory: %v, %v", entries, errRead)
+			}
+		} else {
+			if errInstall != nil {
+				t.Fatal(errInstall)
+			}
+			if active || !released {
+				t.Fatal("successful commit did not release guard")
+			}
+			data, errRead := os.ReadFile(result.Path)
+			if errRead != nil || string(data) != "library-data" {
+				t.Fatalf("file = %q; error = %v", data, errRead)
+			}
+		}
+	}
+}
+
 func TestInstallBlocksLoadedWindowsPlugin(t *testing.T) {
 	t.Parallel()
 
