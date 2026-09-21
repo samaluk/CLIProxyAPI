@@ -4,8 +4,8 @@
   "platform": "darwin/arm64",
   "core": {
     "repository": "samaluk/CLIProxyAPI",
-    "commit": "7f1aa2e649da3f948063d4fde78cb51834413fa6",
-    "tag": "v7.3.9-review.7f1aa2e",
+    "commit": "98f4a9f1503f8c6178bb5a0f74b77e228c0ef82a",
+    "tag": "v7.3.9-review.98f4a9f",
     "base": "upstream/dev",
     "manifest": "core.json"
   },
