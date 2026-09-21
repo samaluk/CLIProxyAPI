@@ -55,6 +55,7 @@ type pluginStoreListEntry struct {
 	Description         string                `json:"description"`
 	Author              string                `json:"author"`
 	Version             string                `json:"version"`
+	Revision            *uint64               `json:"revision,omitempty"`
 	Repository          string                `json:"repository"`
 	InstallType         string                `json:"install_type"`
 	AuthRequired        bool                  `json:"auth_required"`
@@ -66,6 +67,7 @@ type pluginStoreListEntry struct {
 	Tags                []string              `json:"tags,omitempty"`
 	Installed           bool                  `json:"installed"`
 	InstalledVersion    string                `json:"installed_version"`
+	InstalledRevision   *uint64               `json:"installed_revision,omitempty"`
 	InstalledSourceID   string                `json:"installed_source_id,omitempty"`
 	InstallSourceStatus string                `json:"install_source_status,omitempty"`
 	Path                string                `json:"path"`
@@ -74,6 +76,8 @@ type pluginStoreListEntry struct {
 	Enabled             bool                  `json:"enabled"`
 	EffectiveEnabled    bool                  `json:"effective_enabled"`
 	UpdateAvailable     bool                  `json:"update_available"`
+	UpgradeAllowed      bool                  `json:"upgrade_allowed"`
+	UpgradeBlockReason  string                `json:"upgrade_block_reason,omitempty"`
 }
 
 type pluginStorePlatform struct {
@@ -95,12 +99,14 @@ type pluginInstallResponse struct {
 }
 
 type pluginInstallRequest struct {
-	Version string `json:"version"`
+	Version     string `json:"version"`
+	UpgradeOnly bool   `json:"upgrade_only"`
 }
 
 type pluginLocalStatus struct {
 	Installed          bool
 	InstalledVersion   string
+	InstalledRevision  *uint64
 	StoreManaged       bool
 	InstalledSourceID  string
 	InstalledSourceURL string
@@ -176,6 +182,23 @@ func (h *Handler) ListPluginStore(c *gin.Context) {
 		} else if cachedVersion := h.pluginReleases.cached(client, plugin); cachedVersion != "" {
 			storeVersion = cachedVersion
 		}
+		candidate, errCandidate := pluginStoreCandidateManifest(item.source, plugin, storeVersion)
+		upgradeAllowed := false
+		upgradeBlockReason := "installed source does not match the update source"
+		if sourceAllowsUpdate {
+			if errCandidate != nil {
+				upgradeBlockReason = errCandidate.Error()
+			} else if _, errUpgrade := pluginStoreUpgradeManifest(configs[plugin.ID], candidate, runtime.GOOS, runtime.GOARCH); errUpgrade != nil {
+				upgradeBlockReason = errUpgrade.Error()
+			} else {
+				upgradeAllowed = true
+				upgradeBlockReason = ""
+			}
+		}
+		updateAvailable := sourceAllowsUpdate && pluginstore.UpdateAvailable(installedVersion, storeVersion)
+		if candidate.InstallType() == pluginstore.InstallTypeDirect && candidate.Revision != nil && status.InstalledRevision != nil {
+			updateAvailable = upgradeAllowed && *candidate.Revision > *status.InstalledRevision
+		}
 		entries = append(entries, pluginStoreListEntry{
 			StoreID:             htmlsanitize.String(item.source.ID + "/" + plugin.ID),
 			SourceID:            htmlsanitize.String(item.source.ID),
@@ -186,6 +209,7 @@ func (h *Handler) ListPluginStore(c *gin.Context) {
 			Description:         htmlsanitize.String(plugin.Description),
 			Author:              htmlsanitize.String(plugin.Author),
 			Version:             htmlsanitize.String(storeVersion),
+			Revision:            candidate.Revision,
 			Repository:          htmlsanitize.String(plugin.Repository),
 			InstallType:         htmlsanitize.String(pluginstore.PluginInstallType(plugin)),
 			AuthRequired:        plugin.AuthRequired,
@@ -197,6 +221,7 @@ func (h *Handler) ListPluginStore(c *gin.Context) {
 			Tags:                htmlsanitize.Strings(plugin.Tags),
 			Installed:           status.Installed,
 			InstalledVersion:    htmlsanitize.String(installedVersion),
+			InstalledRevision:   status.InstalledRevision,
 			InstalledSourceID:   htmlsanitize.String(installedSourceID),
 			InstallSourceStatus: htmlsanitize.String(installSourceStatus),
 			Path:                htmlsanitize.String(status.Path),
@@ -204,7 +229,9 @@ func (h *Handler) ListPluginStore(c *gin.Context) {
 			Registered:          status.Registered,
 			Enabled:             status.Enabled,
 			EffectiveEnabled:    status.EffectiveEnabled,
-			UpdateAvailable:     sourceAllowsUpdate && pluginstore.UpdateAvailable(installedVersion, storeVersion),
+			UpdateAvailable:     updateAvailable,
+			UpgradeAllowed:      upgradeAllowed,
+			UpgradeBlockReason:  htmlsanitize.String(upgradeBlockReason),
 		})
 	}
 
@@ -226,11 +253,14 @@ func (h *Handler) installPluginFromStore(c *gin.Context, goos, goarch string) {
 	if !okID {
 		return
 	}
-	requestedVersion, errVersionRequest := pluginInstallRequestedVersion(c)
+	installRequest, errVersionRequest := pluginInstallRequestedOptions(c)
 	if errVersionRequest != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": errVersionRequest.Error()})
 		return
 	}
+	requestedVersion := installRequest.Version
+	releaseInstall := lockPluginStoreInstall(h, id)
+	defer releaseInstall()
 	installCtx := c.Request.Context()
 	pluginsEnabled, pluginsDir, proxyURL, sourceConfigs, storeAuth, configs, host := h.pluginStoreSnapshot()
 	resolvedPluginsDir, errResolvePluginsDir := config.ResolvePluginsDir(pluginsDir)
@@ -261,6 +291,27 @@ func (h *Handler) installPluginFromStore(c *gin.Context, goos, goarch string) {
 	var manifest pluginstore.Manifest
 	var result pluginstore.InstallResult
 	var errInstall error
+	if installRequest.UpgradeOnly {
+		installOptions.BeforeCommit = func() (func(), error) {
+			h.mu.Lock()
+			if h.cfg == nil {
+				h.mu.Unlock()
+				return nil, &pluginUpgradeBlockedError{err: fmt.Errorf("configuration unavailable")}
+			}
+			currentDir, errDir := config.ResolvePluginsDir(h.cfg.Plugins.Dir)
+			if errDir != nil || currentDir != pluginsDir {
+				h.mu.Unlock()
+				return nil, &pluginUpgradeBlockedError{err: fmt.Errorf("plugin directory changed during download")}
+			}
+			checked, errUpgrade := pluginStoreUpgradeManifest(h.cfg.Plugins.Configs[id], manifest, goos, goarch)
+			if errUpgrade != nil {
+				h.mu.Unlock()
+				return nil, &pluginUpgradeBlockedError{err: errUpgrade}
+			}
+			manifest = checked
+			return h.mu.Unlock, nil
+		}
+	}
 	switch pluginstore.PluginInstallType(plugin) {
 	case pluginstore.InstallTypeDirect:
 		var errManifest error
@@ -269,14 +320,47 @@ func (h *Handler) installPluginFromStore(c *gin.Context, goos, goarch string) {
 			c.JSON(http.StatusBadGateway, gin.H{"error": "plugin_manifest_invalid", "message": errManifest.Error()})
 			return
 		}
+		if installRequest.UpgradeOnly {
+			manifest, errManifest = pluginStoreUpgradeManifest(configs[id], manifest, goos, goarch)
+			if errManifest != nil {
+				writePluginStoreUpgradeBlocked(c, errManifest)
+				return
+			}
+		}
 		result, errInstall = client.InstallManifest(installCtx, manifest, installOptions)
 	case pluginstore.InstallTypeGitHubRelease:
+		if installRequest.UpgradeOnly {
+			if normalizePluginStoreRequestedVersion(requestedVersion) == "" {
+				release, errRelease := client.FetchLatestRelease(installCtx, plugin)
+				if errRelease != nil {
+					if !writePluginStoreRateLimit(c, errRelease) {
+						c.JSON(http.StatusBadGateway, gin.H{"error": "plugin_release_failed", "message": errRelease.Error()})
+					}
+					return
+				}
+				requestedVersion = release.TagName
+			}
+			var errManifest error
+			manifest, errManifest = pluginStoreCandidateManifest(source, plugin, requestedVersion)
+			if errManifest == nil {
+				manifest, errManifest = pluginStoreUpgradeManifest(configs[id], manifest, goos, goarch)
+			}
+			if errManifest != nil {
+				writePluginStoreUpgradeBlocked(c, errManifest)
+				return
+			}
+		}
 		result, errInstall = installPluginStoreGitHubRelease(installCtx, client, plugin, requestedVersion, installOptions)
 	default:
 		c.JSON(http.StatusBadGateway, gin.H{"error": "plugin_manifest_invalid", "message": fmt.Sprintf("unsupported install type %q", plugin.Install.Type)})
 		return
 	}
 	if errInstall != nil {
+		var blocked *pluginUpgradeBlockedError
+		if errors.As(errInstall, &blocked) {
+			writePluginStoreUpgradeBlocked(c, blocked)
+			return
+		}
 		if writePluginStoreRateLimit(c, errInstall) {
 			return
 		}
@@ -291,7 +375,7 @@ func (h *Handler) installPluginFromStore(c *gin.Context, goos, goarch string) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "plugin_install_failed", "message": errInstall.Error()})
 		return
 	}
-	if manifest.ID == "" {
+	if manifest.ID == "" || result.InstallType == pluginstore.InstallTypeGitHubRelease {
 		var errManifest error
 		manifest, errManifest = pluginStoreManifestForInstall(source, plugin, result)
 		if errManifest != nil {
@@ -314,6 +398,17 @@ func (h *Handler) installPluginFromStore(c *gin.Context, goos, goarch string) {
 			"path":    result.Path,
 		})
 		return
+	}
+	if installRequest.UpgradeOnly {
+		// A second installer or configuration update may have selected a newer
+		// release while this request downloaded its immutable versioned file.
+		var errUpgrade error
+		manifest, errUpgrade = pluginStoreUpgradeManifest(h.cfg.Plugins.Configs[id], manifest, goos, goarch)
+		if errUpgrade != nil {
+			h.mu.Unlock()
+			writePluginStoreUpgradeBlocked(c, errUpgrade)
+			return
+		}
 	}
 	if errEnable := h.enablePluginConfigLocked(id, manifest); errEnable != nil {
 		h.mu.Unlock()
@@ -375,6 +470,7 @@ func pluginStoreDirectManifest(source pluginstore.Source, plugin pluginstore.Plu
 			continue
 		}
 		plugin.Version = version
+		plugin.Revision = candidate.Revision
 		plugin.Install = candidate.Install
 		if strings.TrimSpace(plugin.Install.Type) == "" {
 			plugin.Install.Type = pluginstore.InstallTypeDirect
@@ -442,30 +538,37 @@ func pluginStoreManifestForInstall(source pluginstore.Source, plugin pluginstore
 	}
 }
 
-func pluginInstallRequestedVersion(c *gin.Context) (string, error) {
+func pluginInstallRequestedOptions(c *gin.Context) (pluginInstallRequest, error) {
+	var req pluginInstallRequest
+	if c == nil {
+		return req, nil
+	}
 	requestedVersion := strings.TrimSpace(c.Query("version"))
-	if c == nil || c.Request == nil || c.Request.Body == nil || c.Request.Body == http.NoBody {
-		return requestedVersion, nil
+	if c.Request == nil || c.Request.Body == nil || c.Request.Body == http.NoBody {
+		req.Version = requestedVersion
+		return req, nil
 	}
 	body, errRead := io.ReadAll(c.Request.Body)
 	if errRead != nil {
-		return "", fmt.Errorf("read install request: %w", errRead)
+		return req, fmt.Errorf("read install request: %w", errRead)
 	}
 	if strings.TrimSpace(string(body)) == "" {
-		return requestedVersion, nil
+		req.Version = requestedVersion
+		return req, nil
 	}
-	var req pluginInstallRequest
 	if errDecode := json.Unmarshal(body, &req); errDecode != nil {
-		return "", fmt.Errorf("decode install request: %w", errDecode)
+		return req, fmt.Errorf("decode install request: %w", errDecode)
 	}
 	bodyVersion := strings.TrimSpace(req.Version)
 	if requestedVersion == "" {
-		return bodyVersion, nil
+		req.Version = bodyVersion
+		return req, nil
 	}
 	if bodyVersion == "" || normalizePluginStoreRequestedVersion(bodyVersion) == normalizePluginStoreRequestedVersion(requestedVersion) {
-		return requestedVersion, nil
+		req.Version = requestedVersion
+		return req, nil
 	}
-	return "", fmt.Errorf("version query %q does not match request body version %q", requestedVersion, bodyVersion)
+	return req, fmt.Errorf("version query %q does not match request body version %q", requestedVersion, bodyVersion)
 }
 
 func pluginStoreReleaseTagCandidates(version string) []string {
@@ -720,6 +823,12 @@ func pluginLocalStatuses(pluginsEnabled bool, pluginsDir string, configs map[str
 		status.Configured = true
 		status.Enabled = pluginInstanceEnabled(item)
 		status.InstalledSourceID, status.InstalledSourceURL, status.StoreManaged = pluginStoreConfiguredSource(item)
+		if storeNode := pluginStoreConfigNode(item); storeNode != nil {
+			var manifest pluginstore.Manifest
+			if errDecode := storeNode.Decode(&manifest); errDecode == nil {
+				status.InstalledRevision = manifest.Revision
+			}
+		}
 		statuses[id] = status
 	}
 	if host != nil {
