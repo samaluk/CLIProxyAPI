@@ -646,11 +646,23 @@ type CodexModel struct {
 	// Alias is the client-facing model name that maps to Name.
 	Alias string `yaml:"alias" json:"alias"`
 
+	// CanonicalModelID identifies the model used for client metadata without changing upstream routing.
+	// When omitted, metadata continues to use Name.
+	CanonicalModelID string `yaml:"canonical-model-id,omitempty" json:"canonical-model-id,omitempty"`
+
 	// DisplayName is the optional human-readable name shown in model catalogs.
 	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
 
 	// MaxContextLength overrides the context window advertised to Codex clients.
 	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
+
+	// MaxCompletionTokens declares the output token ceiling; non-positive values leave it unknown.
+	MaxCompletionTokens int `yaml:"max-completion-tokens,omitempty" json:"max-completion-tokens,omitempty"`
+
+	// InputModalities and OutputModalities declare provider capabilities, independently of client projections.
+	// Empty declarations leave the corresponding capability unknown.
+	InputModalities  []string `yaml:"input-modalities,omitempty" json:"input-modalities,omitempty"`
+	OutputModalities []string `yaml:"output-modalities,omitempty" json:"output-modalities,omitempty"`
 
 	// ForceMapping rewrites upstream response model fields back to Alias.
 	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
@@ -676,6 +688,11 @@ func (m CodexModel) GetForceMapping() bool    { return m.ForceMapping }
 func (m CodexModel) GetIsCompat() bool        { return m.IsCompat }
 
 func (m CodexModel) GetThinking() *registry.ThinkingSupport { return m.Thinking }
+
+func (m CodexModel) GetCanonicalModelID() string   { return m.CanonicalModelID }
+func (m CodexModel) GetMaxCompletionTokens() int   { return m.MaxCompletionTokens }
+func (m CodexModel) GetInputModalities() []string  { return m.InputModalities }
+func (m CodexModel) GetOutputModalities() []string { return m.OutputModalities }
 
 // XAIKey uses the Codex API key structure for native xAI execution.
 type XAIKey = CodexKey
