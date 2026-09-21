@@ -210,6 +210,22 @@ func (m *Manager) selectionModelForAuth(auth *Auth, routeModel string) string {
 	if strings.TrimSpace(resolvedModel) == "" {
 		resolvedModel = requestedModel
 	}
+	if isConfiguredModelRoutingAuth(auth) && canonicalModelKey(routeModel) != canonicalModelKey(resolvedModel) {
+		routing := m.loadAPIKeyModelRouting()
+		pool := resolveOpenAICompatUpstreamModelPool(routing.config, auth, resolvedModel)
+		if len(pool) <= 1 {
+			upstreamModel := m.applyAPIKeyModelAliasWithRouting(routing, auth, resolvedModel)
+			if len(pool) == 1 {
+				upstreamModel = pool[0]
+			}
+			if canonicalModelKey(upstreamModel) != canonicalModelKey(resolvedModel) {
+				// Single-target API aliases record results under the full route.
+				// Preserve that key when a credential prefix was stripped above,
+				// otherwise selection misses cooldowns that execution still enforces.
+				return strings.TrimSpace(routeModel)
+			}
+		}
+	}
 	return resolvedModel
 }
 
