@@ -4,10 +4,11 @@
   "platform": "darwin/arm64",
   "core": {
     "repository": "samaluk/CLIProxyAPI",
-    "commit": "98f4a9f1503f8c6178bb5a0f74b77e228c0ef82a",
-    "tag": "v7.3.9-review.98f4a9f",
+    "commit": "464495f91f51906ac678cc87586d014c2d3e794e",
+    "tag": "v7.3.9-review.464495f",
     "base": "upstream/dev",
-    "manifest": "core.json"
+    "manifest": "core.json",
+    "revision": 1789953531
   },
   "plugins": [
     {
@@ -16,7 +17,8 @@
       "commit": "b4df808f4652091c435c227f91712e54078471c0",
       "version": "0.3.2-review.b4df808.20260920",
       "library_sha256": "079290a5248bd417d30df93f1edf79079faf3c95179d88598e12727f57f6c6bf",
-      "archive_sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2"
+      "archive_sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2",
+      "revision": 1789933504
     },
     {
       "id": "opencode-go-cliproxyapi",
@@ -24,7 +26,8 @@
       "commit": "d3849203ccc00ae5152b20a9f929a5d686208a72",
       "version": "0.1.7-review.d384920.20260920",
       "library_sha256": "ad0da0e3b436de24d21b4b83843173604a7ca32a8ea1556e81140c21072a0361",
-      "archive_sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e"
+      "archive_sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e",
+      "revision": 1789933512
     },
     {
       "id": "key-account-bind",
@@ -32,27 +35,31 @@
       "commit": "e87054b44a2ca099f87622e6fabc2bfdb1e48750",
       "version": "0.3.0-review.e87054b.20260920",
       "library_sha256": "b6cdadd22abfcb044c2a27fa6e5a7bdb43d781848527141e117b3969d3d2ac2d",
-      "archive_sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3"
+      "archive_sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3",
+      "revision": 1789948057
     }
   ],
   "pi": {
     "package": "@router-for-me/pi-cliproxyapi-provider",
     "version": "1.4.18",
     "source": "npm",
-    "fork_required": false
+    "fork_required": false,
+    "work_transport": "sse"
   },
   "notes": [
     "Only advertised platform artifacts were tested.",
     "T3 and the harness applications keep their vendor update channels.",
     "Native proxy plugins and Pi extensions have separate package managers.",
     "The GUI fork requires a local build until a trusted signed distribution or equivalent upstream release exists.",
-    "Automatic release workflows are disabled on the core and binding forks to protect checksum-pinned reviewed assets; normal CI remains enabled."
+    "Automatic release workflows are disabled on the core and binding forks to protect checksum-pinned reviewed assets; normal CI remains enabled.",
+    "Reviewed core and direct plugin updates require ordered release revisions; stale or unproven automatic updates are blocked by the matching GUI and core builds.",
+    "Prefixed configured model aliases preserve their existing cooldown state during credential selection. The initiating upstream failure remains a separate diagnosis."
   ],
   "gui": {
     "repository": "samaluk/EasyCLIProxyAPI",
-    "branch": "review/reviewed-core-updates",
-    "commit": "ccf4572e6dbd9e94ca52a94bbdc8e9b4b9fb7372",
-    "binary_sha256": "c43567cacde842547952b10913519fc40a83d109a091433b9bb93365afc82bfd",
+    "branch": "review/plugin-update-revisions",
+    "commit": "b12f3fda1a1fc86f7b1851012c17e7a1a5e7856e",
+    "binary_sha256": "2ea0b58e81ec7542800aac193cc4f687b407d33339dc11a5f8ffce73b5b2b5bc",
     "distribution": "local ad-hoc signed build; automatic app update unavailable"
   }
 }
