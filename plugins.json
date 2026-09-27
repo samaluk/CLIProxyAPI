@@ -6,7 +6,7 @@
       "name": "CommandCode reviewed",
       "description": "Configured model capabilities and exact subscription routes.",
       "author": "samaluk",
-      "version": "0.3.2-review.b4df808.20260920",
+      "version": "0.3.3-review.0d902ae.20260927",
       "repository": "https://github.com/samaluk/cpa-plugin-commandcode",
       "homepage": "https://github.com/samaluk/cpa-plugin-commandcode",
       "tags": [
@@ -19,13 +19,29 @@
           {
             "goos": "darwin",
             "goarch": "arm64",
-            "url": "https://github.com/samaluk/cpa-plugin-commandcode/releases/download/v0.3.2-review.b4df808.20260920/commandcode_0.3.2-review.b4df808.20260920_darwin_arm64.zip",
-            "sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2",
-            "size": 3016294
+            "url": "https://github.com/samaluk/cpa-plugin-commandcode/releases/download/v0.3.3-review.0d902ae.20260927/reviewed-commandcode_0.3.3-review.0d902ae.20260927_darwin_arm64.zip",
+            "sha256": "4654dddb3870c78d2679cc6a5c2fc009c269fe1f0962ba52d3b07f7632d25c23",
+            "size": 2972903
           }
         ]
       },
       "versions": [
+        {
+          "version": "0.3.3-review.0d902ae.20260927",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/cpa-plugin-commandcode/releases/download/v0.3.3-review.0d902ae.20260927/reviewed-commandcode_0.3.3-review.0d902ae.20260927_darwin_arm64.zip",
+                "sha256": "4654dddb3870c78d2679cc6a5c2fc009c269fe1f0962ba52d3b07f7632d25c23",
+                "size": 2972903
+              }
+            ]
+          },
+          "revision": 1790535454
+        },
         {
           "version": "0.3.2-review.b4df808.20260920",
           "install": {
@@ -43,14 +59,14 @@
           "revision": 1789933504
         }
       ],
-      "revision": 1789933504
+      "revision": 1790535454
     },
     {
       "id": "opencode-go-cliproxyapi",
       "name": "OpenCode Go reviewed",
       "description": "Catalog and protocol compatibility, including DeepSeek tool reasoning.",
       "author": "samaluk",
-      "version": "0.1.7-review.d384920.20260920",
+      "version": "0.1.9-review.606c4be.20260927",
       "repository": "https://github.com/samaluk/opencode-go-cliproxyapi",
       "homepage": "https://github.com/samaluk/opencode-go-cliproxyapi",
       "tags": [
@@ -63,13 +79,29 @@
           {
             "goos": "darwin",
             "goarch": "arm64",
-            "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.7-review.d384920.20260920/opencode-go-cliproxyapi_0.1.7-review.d384920.20260920_darwin_arm64.zip",
-            "sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e",
-            "size": 2208696
+            "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.9-review.606c4be.20260927/reviewed-opencode-go-cliproxyapi_0.1.9-review.606c4be.20260927_darwin_arm64.zip",
+            "sha256": "2f26c8eac0843f3c5d9c53a54cb74d8ba78d7e6e68309782f73a739ecb5bf39d",
+            "size": 2180572
           }
         ]
       },
       "versions": [
+        {
+          "version": "0.1.9-review.606c4be.20260927",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.9-review.606c4be.20260927/reviewed-opencode-go-cliproxyapi_0.1.9-review.606c4be.20260927_darwin_arm64.zip",
+                "sha256": "2f26c8eac0843f3c5d9c53a54cb74d8ba78d7e6e68309782f73a739ecb5bf39d",
+                "size": 2180572
+              }
+            ]
+          },
+          "revision": 1790535454
+        },
         {
           "version": "0.1.7-review.d384920.20260920",
           "install": {
@@ -87,7 +119,7 @@
           "revision": 1789933512
         }
       ],
-      "revision": 1789933512
+      "revision": 1790535454
     },
     {
       "id": "key-account-bind",

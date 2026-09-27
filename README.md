@@ -23,3 +23,5 @@ The reviewed Easy app currently needs a local build; its existing signature and 
 ## Advancing the channel
 
 Fetch upstream, preserve immutable backup tags, rebase scoped contribution branches, and remove patches superseded by stock releases. Run focused regression tests and independent review. Build from clean commits with honest version metadata. Publish each exact artifact to a new release, verify the downloaded bytes, then update the manifests together. Give each changed release a strictly increasing revision, no larger than 9007199254740991. This channel uses release publication timestamps in seconds. Preserve prior plugin versions for explicit rollback. Record live catalog, account routing, and configuration-preservation checks after installation. A new upstream tag alone does not advance this channel.
+
+Reviewed plugin ZIPs use a `reviewed-` filename prefix, with separate `reviewed-checksums.txt` and `reviewed-provenance.json` assets. Ordinary plugin CI can remain enabled without replacing the pinned assets. The core and binding forks retain their disabled automatic release workflows.

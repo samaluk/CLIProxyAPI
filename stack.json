@@ -1,33 +1,33 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-09-20",
+  "reviewed_at": "2026-09-27",
   "platform": "darwin/arm64",
   "core": {
     "repository": "samaluk/CLIProxyAPI",
-    "commit": "464495f91f51906ac678cc87586d014c2d3e794e",
-    "tag": "v7.3.9-review.464495f",
+    "commit": "e37070a0c9a0e41951398e92a5f3406804600da8",
+    "tag": "v8.0.2-review.e37070a",
     "base": "upstream/dev",
     "manifest": "core.json",
-    "revision": 1789953531
+    "revision": 1790535445
   },
   "plugins": [
     {
       "id": "commandcode",
       "repository": "https://github.com/samaluk/cpa-plugin-commandcode",
-      "commit": "b4df808f4652091c435c227f91712e54078471c0",
-      "version": "0.3.2-review.b4df808.20260920",
-      "library_sha256": "079290a5248bd417d30df93f1edf79079faf3c95179d88598e12727f57f6c6bf",
-      "archive_sha256": "62d2dc59d493d44db0fa6c133fc15f76cfd0e2b4bdb876e5ec0840eacb227cc2",
-      "revision": 1789933504
+      "commit": "0d902aea28626c876791f65be5e66e43bc2dc644",
+      "version": "0.3.3-review.0d902ae.20260927",
+      "library_sha256": "da7300d4bfd1861595d6cee82dac607f6e4dabbcd4512d6aaca635b2af602605",
+      "archive_sha256": "4654dddb3870c78d2679cc6a5c2fc009c269fe1f0962ba52d3b07f7632d25c23",
+      "revision": 1790535454
     },
     {
       "id": "opencode-go-cliproxyapi",
       "repository": "https://github.com/samaluk/opencode-go-cliproxyapi",
-      "commit": "d3849203ccc00ae5152b20a9f929a5d686208a72",
-      "version": "0.1.7-review.d384920.20260920",
-      "library_sha256": "ad0da0e3b436de24d21b4b83843173604a7ca32a8ea1556e81140c21072a0361",
-      "archive_sha256": "559e0e3b3663606e00de0255390924ca1dc6b2bd8d2ac6b02f7ff37681b2fc6e",
-      "revision": 1789933512
+      "commit": "606c4be50425cc7ac0809119a6f8e8a4b2c6e368",
+      "version": "0.1.9-review.606c4be.20260927",
+      "library_sha256": "54f0bbd5d240d31a29ab9d6c7117190aeb930c3a69039965f88a6dbc09c51b0e",
+      "archive_sha256": "2f26c8eac0843f3c5d9c53a54cb74d8ba78d7e6e68309782f73a739ecb5bf39d",
+      "revision": 1790535454
     },
     {
       "id": "key-account-bind",
@@ -41,7 +41,7 @@
   ],
   "pi": {
     "package": "@router-for-me/pi-cliproxyapi-provider",
-    "version": "1.4.18",
+    "version": "1.4.20",
     "source": "npm",
     "fork_required": false,
     "work_transport": "sse"
@@ -58,8 +58,8 @@
   "gui": {
     "repository": "samaluk/EasyCLIProxyAPI",
     "branch": "review/plugin-update-revisions",
-    "commit": "b12f3fda1a1fc86f7b1851012c17e7a1a5e7856e",
-    "binary_sha256": "2ea0b58e81ec7542800aac193cc4f687b407d33339dc11a5f8ffce73b5b2b5bc",
+    "commit": "5ff20bcf09f8e3aa012de1a52f8973f2827a42e0",
+    "binary_sha256": "6317033a231b876796ffbdaf14b7b5bb0ce0b0151699e50f87ff7a2eaa393ebc",
     "distribution": "local ad-hoc signed build; automatic app update unavailable"
   }
 }
