@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-09-27",
+  "reviewed_at": "2026-09-28",
   "platform": "darwin/arm64",
   "core": {
     "repository": "samaluk/CLIProxyAPI",
-    "commit": "e37070a0c9a0e41951398e92a5f3406804600da8",
-    "tag": "v8.0.2-review.e37070a",
+    "commit": "88e97989a12e772d1603e9764632fd43cfcce7e0",
+    "tag": "v8.0.3-review.88e9798.20260928",
     "base": "upstream/dev",
     "manifest": "core.json",
-    "revision": 1790535445
+    "revision": 1790637922
   },
   "plugins": [
     {
@@ -32,11 +32,11 @@
     {
       "id": "key-account-bind",
       "repository": "https://github.com/samaluk/cpa-key-account-bind",
-      "commit": "e87054b44a2ca099f87622e6fabc2bfdb1e48750",
-      "version": "0.3.0-review.e87054b.20260920",
-      "library_sha256": "b6cdadd22abfcb044c2a27fa6e5a7bdb43d781848527141e117b3969d3d2ac2d",
-      "archive_sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3",
-      "revision": 1789948057
+      "commit": "e29b6f3e2ef1e13a3cc50db3d992a7641c48dd4a",
+      "version": "0.3.0-review.e29b6f3.20260928",
+      "library_sha256": "ac7daef2e4c171582ead3fd027dea954f1ac42fd5cd1c2d1cf46d108b5705cf7",
+      "archive_sha256": "625ead2335aefd10efbf7dcf412d803cf7a27734cafd36ad66c183cdf77ba7e4",
+      "revision": 1790637923
     }
   ],
   "pi": {
@@ -58,8 +58,9 @@
   "gui": {
     "repository": "samaluk/EasyCLIProxyAPI",
     "branch": "review/plugin-update-revisions",
-    "commit": "5ff20bcf09f8e3aa012de1a52f8973f2827a42e0",
-    "binary_sha256": "6317033a231b876796ffbdaf14b7b5bb0ce0b0151699e50f87ff7a2eaa393ebc",
-    "distribution": "local ad-hoc signed build; automatic app update unavailable"
+    "commit": "758616d8dae8e87ab3dc5f871ae4bdb7d2ba623a",
+    "binary_sha256": "01c37be454259684906dd4809d4a1d4edca8538463ee4cdaabe8ee4eb2363e16",
+    "distribution": "local ad-hoc signed build; automatic app update unavailable",
+    "version": "0.3.6"
   }
 }

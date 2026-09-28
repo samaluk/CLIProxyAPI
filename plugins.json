@@ -126,7 +126,7 @@
       "name": "Account binding reviewed",
       "description": "Account scopes, transient credential recovery and terminal scope-denial errors.",
       "author": "samaluk",
-      "version": "0.3.0-review.e87054b.20260920",
+      "version": "0.3.0-review.e29b6f3.20260928",
       "repository": "https://github.com/samaluk/cpa-key-account-bind",
       "homepage": "https://github.com/samaluk/cpa-key-account-bind",
       "tags": [
@@ -139,13 +139,29 @@
           {
             "goos": "darwin",
             "goarch": "arm64",
-            "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.e87054b.20260920/key-account-bind_0.3.0-review.e87054b.20260920_darwin_arm64.zip",
-            "sha256": "3425850409f111fc7a290978b3efec230a170acb226fb86abaceae2977b6beb3",
-            "size": 2055274
+            "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.e29b6f3.20260928/reviewed-key-account-bind_0.3.0-review.e29b6f3.20260928_darwin_arm64.zip",
+            "sha256": "625ead2335aefd10efbf7dcf412d803cf7a27734cafd36ad66c183cdf77ba7e4",
+            "size": 2027543
           }
         ]
       },
       "versions": [
+        {
+          "version": "0.3.0-review.e29b6f3.20260928",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/cpa-key-account-bind/releases/download/v0.3.0-review.e29b6f3.20260928/reviewed-key-account-bind_0.3.0-review.e29b6f3.20260928_darwin_arm64.zip",
+                "sha256": "625ead2335aefd10efbf7dcf412d803cf7a27734cafd36ad66c183cdf77ba7e4",
+                "size": 2027543
+              }
+            ]
+          },
+          "revision": 1790637923
+        },
         {
           "version": "0.3.0-review.e87054b.20260920",
           "install": {
@@ -179,7 +195,7 @@
           "revision": 1789933521
         }
       ],
-      "revision": 1789948057
+      "revision": 1790637923
     }
   ]
 }
