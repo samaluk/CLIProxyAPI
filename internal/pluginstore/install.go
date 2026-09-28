@@ -28,6 +28,9 @@ type InstallOptions struct {
 	// BeforeWrite runs after the archive has been downloaded and verified, but
 	// before an existing target plugin file is replaced.
 	BeforeWrite func() error
+	// BeforeCommit validates fresh install state immediately before filesystem
+	// inspection or mutation. The returned release function runs after commit.
+	BeforeCommit func() (release func(), err error)
 }
 
 // ErrLoadedPluginLocked is returned when an install would overwrite a plugin
@@ -226,6 +229,7 @@ func directPluginVersion(plugin Plugin, id string, version string) (Plugin, erro
 		}
 		plugin.Version = version
 		plugin.Install = NormalizeInstallPlan(candidate.Install)
+		plugin.Revision = candidate.Revision
 		if plugin.Install.Type == "" {
 			plugin.Install.Type = InstallTypeDirect
 		}
@@ -264,6 +268,15 @@ func InstallArchive(archiveData []byte, plugin Plugin, options InstallOptions) (
 	targetPath, errTarget := installTargetPath(options, id, version)
 	if errTarget != nil {
 		return InstallResult{}, errTarget
+	}
+	if options.BeforeCommit != nil {
+		release, errCommit := options.BeforeCommit()
+		if errCommit != nil {
+			return InstallResult{}, fmt.Errorf("prepare plugin commit: %w", errCommit)
+		}
+		if release != nil {
+			defer release()
+		}
 	}
 	overwritten := false
 	if _, errStat := os.Stat(targetPath); errStat == nil {
