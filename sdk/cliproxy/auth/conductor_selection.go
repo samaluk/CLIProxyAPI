@@ -966,6 +966,9 @@ func (m *Manager) pickViaPluginScheduler(ctx context.Context, scheduler PluginSc
 	}
 	resp, handled, errPick := scheduler.PickAuth(ctx, req)
 	if errPick != nil {
+		if statusCodeFromError(errPick) == http.StatusForbidden {
+			return nil, true, newRequestPolicyError(errPick)
+		}
 		return nil, true, errPick
 	}
 	if !handled || !resp.Handled {
