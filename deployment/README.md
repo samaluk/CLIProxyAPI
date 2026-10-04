@@ -37,9 +37,9 @@ Stable channels:
 
 T3 and Pi remain stock installations. Their optional fork branches are reviewable contributions, not dependencies to install automatically. T3's OpenCode v2 catalog loader may accept a partial initial snapshot; do not downgrade OpenCode or replace T3 merely because this occurs. The shared launcher must preserve OpenCode server authentication variables for `serve` while stripping inherited account/config overrides.
 
-## Future Synology deployment
+## Central Synology deployment
 
-Read [NAS-HANDOFF.md](NAS-HANDOFF.md). The NAS has not been migrated by this sync. The container recipe builds Linux amd64 libraries from the same Debian base, without AVX requirements. Build on another machine; keep the weak NAS for runtime.
+Read [REMOTE-GATEWAY.md](REMOTE-GATEWAY.md) for the central catalog service and client sync installer, and [NAS-HANDOFF.md](NAS-HANDOFF.md) for credential cutover precautions. The homelab `easy-cli-proxy` stack owns the NAS deployment. The container recipe builds Linux amd64 libraries from the same Debian base, without AVX requirements. Build on another machine; keep the weak NAS for runtime.
 
 An agent can start with:
 

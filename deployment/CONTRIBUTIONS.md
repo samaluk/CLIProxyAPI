@@ -43,3 +43,7 @@ Each branch is based directly on upstream main, contains scoped commits and pass
 Core full Go tests, all native plugin tests/race/vet, synthetic core/plugin protocol checks, Easy's 732 passing Rust tests with 6 ignored, frontend typecheck/build, Pi's 179 tests and T3's 67 focused tests passed. Three Easy frontend failures also reproduce on clean upstream and remain recorded. Local passing tests are not a claim of upstream CI approval; the core PR has a maintainer-controlled translator-path guard.
 
 Unique checksum-pinned core and OpenCode Go releases were published, the existing reviewed channel advanced monotonically, and the Mac stack installed and verified. A Linux amd64 image built and loaded all three native plugins in a local container with synthetic credentials. Synology DSM/kernel compatibility and real NAS load remain untested. No NAS migration or main Codex cutover occurred.
+
+## Central gateway deployment layer
+
+`deployment/gateway` and the remote catalog client are maintained in this fork. They solve multi-host discovery and propagation without changing stock harness binaries. The general upstream opportunity is authenticated, account-scoped catalog discovery with canonical identity, complete capabilities and revision-based refresh. Propose that API separately from personal homelab paths, private profile keys and NAS packaging. Existing provider/core PRs remain separate contributions.
