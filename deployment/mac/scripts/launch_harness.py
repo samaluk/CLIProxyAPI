@@ -43,6 +43,7 @@ def main():
             continue
         if name.startswith(('ANTHROPIC_', 'CLAUDE_CODE_OAUTH_', 'CODEX_EXEC_SERVER_', 'OPENCODE_')) or name in (
                 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_API_BASE', 'CODEX_ELECTRON_USER_DATA_PATH',
+                'CLAUDE_CODE_MAX_CONTEXT_TOKENS', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
                 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'):
             env.pop(name, None)
     personal = scope == 'personal'

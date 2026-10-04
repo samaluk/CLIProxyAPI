@@ -14,8 +14,8 @@ ROOT = pathlib.Path(os.environ.get('CPA_STATE_DIR', str(pathlib.Path.home()/'.lo
 PROFILES = pathlib.Path.home() / 'Library/Application Support/Agent Profiles'
 RETIRED = {'personal/codex-oauth/gpt-5.3-codex-spark'}
 SCOPES = ('personal', 'work')
-CAP_FIELDS = ('canonical_model_id', 'context_window', 'max_context_window', 'max_tokens', 'max_output_tokens', 'max_completion_tokens', 'input_modalities', 'supported_input_modalities', 'output_modalities', 'default_reasoning_level', 'supported_reasoning_levels', 'visibility')
-CODEX_FIELDS = ('context_window', 'max_context_window', 'max_tokens', 'input_modalities', 'default_reasoning_level', 'supported_reasoning_levels', 'service_tiers', 'additional_speed_tiers')
+CAP_FIELDS = ('canonical_model_id', 'context_window', 'max_context_window', 'max_tokens', 'max_output_tokens', 'max_completion_tokens', 'input_modalities', 'supported_input_modalities', 'output_modalities', 'default_reasoning_level', 'supported_reasoning_levels', 'visibility', 'supports_parallel_tool_calls', 'supports_image_detail_original', 'support_verbosity')
+CODEX_FIELDS = ('context_window', 'max_context_window', 'max_tokens', 'input_modalities', 'default_reasoning_level', 'supported_reasoning_levels', 'service_tiers', 'additional_speed_tiers', 'supports_parallel_tool_calls', 'supports_image_detail_original', 'support_verbosity')
 PI_FIELDS = ('reasoning', 'input', 'contextWindow', 'maxTokens', 'thinkingLevelMap')
 EFFORTS = ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')
 PROMPT_FIELDS = ('base_instructions', 'model_messages', 'include_apps_usage_instructions', 'include_plugin_usage_instructions', 'include_skills_usage_instructions')
@@ -197,13 +197,13 @@ def opencode_update(document, live, scope):
                 else: options.pop('reasoningEffort', None)
     return result
 
-def stock_pi_map(profile, live):
+def stock_pi_map(profile, live, executable=None):
     package = profile / 'pi/npm/node_modules/@router-for-me/pi-cliproxyapi-provider'
     info = read(package / 'package.json')
     if info.get('name') != '@router-for-me/pi-cliproxyapi-provider': raise ValueError('Unexpected Pi mapping package')
     module = package / 'extensions/lib.ts'
     source = "const {toPiModel}=await import(process.argv[1]); const input=await Bun.stdin.json(); process.stdout.write(JSON.stringify(input.map(m=>toPiModel(m)).filter(Boolean)));"
-    executable = shutil.which('pi')
+    executable = executable or shutil.which('pi')
     runtime_modules = next((p for p in pathlib.Path(executable).resolve().parents if p.name == 'node_modules'), None) if executable else None
     if runtime_modules is None: raise ValueError('Could not locate installed stock Pi runtime modules')
     environment = os.environ.copy(); environment['NODE_PATH'] = str(runtime_modules)

@@ -87,7 +87,7 @@ def codex_endpoint(raw, endpoint):
     return result
 
 
-def prepare_profile(root, scope, snapshot, endpoint, trust_templates):
+def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=None):
     profile = root / scope
     live = {m['slug']: catalogs.safe_model(m) for m in snapshot['models']}
     # Explicit null clears an unsupported generic reasoning default.
@@ -133,7 +133,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates):
         prepare(path, catalogs.encoded(updated))
     path = profile / 'pi/cliproxyapi-models.json'
     if path.exists():
-        mapper, _, _ = catalogs.stock_pi_map(profile, live)
+        mapper, _, _ = catalogs.stock_pi_map(profile, live, (binaries or {}).get('pi'))
         updated = catalogs.pi_update(catalogs.read(path), mapper, live)
         for model in updated['models']:
             if model['id'].startswith(scope + '/'):
@@ -156,6 +156,10 @@ def main():
     os.umask(0o077)
     root = args.profiles.expanduser().resolve()
     settings = catalogs.read(root / 'gateway.json')
+    # Scheduled jobs have a minimal environment. Use the path recorded during
+    # installation so the installed stock Pi mapper can locate Pi and Bun.
+    if settings.get('runtime_path'):
+        os.environ['PATH'] = settings['runtime_path']
     endpoint = origin(settings['endpoint'])
     state = root / 'sync-state'; state.mkdir(mode=0o700, exist_ok=True)
     main_config = Path.home() / '.codex/config.toml'
@@ -179,7 +183,7 @@ def main():
             cache_path = state / (scope + '.json')
             cache = catalogs.read(cache_path) if cache_path.exists() else None
             snapshot = fetch(endpoint, key_path.read_text().strip(), scope, cache)
-            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True)
+            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'))
             changes.update(current); snapshots[cache_path] = snapshot
             receipts.append({'scope': scope, 'revision': snapshot['revision'], 'modelCount': len(snapshot['models']),
                              'deferred': snapshot.get('deferred', []), 'missingTrustedTemplates': pending})

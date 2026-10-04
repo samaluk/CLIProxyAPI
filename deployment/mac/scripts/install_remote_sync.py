@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 import plistlib
 import shlex
-import shutil
 import subprocess
 import sys
 
@@ -22,78 +21,135 @@ FILES = ('remote_sync.py', 'refresh_scoped_catalogs.py', 'model_labels.py', 'cod
 LABEL = 'me.cpa.catalog-sync'
 
 
+def write_transaction(targets, backup, activate=None, recover=None):
+    """Preflight all files, retain a restore manifest, roll back failed installs."""
+    saved = {}
+    for path, (raw, mode) in targets.items():
+        if any(p.is_symlink() for p in path.parents):
+            raise ValueError('Refusing symlinked installation directory')
+        if path.exists() and not path.is_file():
+            raise ValueError('Installation target must be a file')
+        saved[path] = {'link': str(path.readlink()) if path.is_symlink() else None,
+                       'raw': path.read_bytes() if path.exists() else None,
+                       'mode': path.stat().st_mode & 0o777 if path.exists() else None}
+    backup.mkdir(parents=True, mode=0o700)
+    manifest = []
+    for index, (path, old) in enumerate(saved.items()):
+        if old['raw'] is not None:
+            (backup / str(index)).write_bytes(old['raw'])
+        manifest.append({'path': str(path), 'backup': str(index) if old['raw'] is not None else None,
+                         'symlink': old['link'], 'mode': old['mode']})
+    (backup / 'manifest.json').write_bytes(catalogs.encoded(manifest))
+    written = []
+    try:
+        for path, (raw, mode) in targets.items():
+            old = saved[path]
+            if (path.read_bytes() if path.exists() else None) != old['raw']:
+                raise ValueError('Installation target changed after preflight')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            catalogs.atomic_write(path, raw, mode)
+            written.append(path)
+        if activate:
+            activate()
+    except BaseException:
+        for path in reversed(written):
+            if path.read_bytes() != targets[path][0]:
+                continue  # Preserve a concurrent edit; the manifest retains recovery data.
+            old = saved[path]
+            if old['link'] is not None:
+                path.unlink(); path.symlink_to(old['link'])
+            elif old['raw'] is None:
+                path.unlink()
+            else:
+                catalogs.atomic_write(path, old['raw'], old['mode'])
+        if recover:
+            recover()
+        raise
+
+
+def run(command, required=True):
+    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if required and result.returncode:
+        raise RuntimeError('Catalog scheduler command failed')
+    return result.returncode == 0
+
+
+def scheduler(command, state, targets):
+    """Return activation/recovery operations; read state before any mutation."""
+    if sys.platform == 'darwin':
+        path = Path.home() / 'Library/LaunchAgents' / (LABEL + '.plist')
+        domain = 'gui/' + str(os.getuid())
+        was_loaded = run(['launchctl', 'print', domain + '/' + LABEL], False)
+        body = {'Label': LABEL, 'ProgramArguments': command, 'StartInterval': 300, 'RunAtLoad': True,
+                'StandardOutPath': str(state / 'sync.log'), 'StandardErrorPath': str(state / 'sync-error.log')}
+        targets[path] = (plistlib.dumps(body), 0o600)
+        def activate():
+            run(['launchctl', 'bootout', domain + '/' + LABEL], False)
+            run(['launchctl', 'bootstrap', domain, str(path)])
+        def recover():
+            run(['launchctl', 'bootout', domain + '/' + LABEL], False)
+            if was_loaded:
+                run(['launchctl', 'bootstrap', domain, str(path)], False)
+    else:
+        folder = Path.home() / '.config/systemd/user'
+        quote = lambda value: json.dumps(value).replace('%', '%%').replace('$', '$$')
+        service = '[Unit]\nDescription=Synchronize scoped CPA model catalogs\n[Service]\nType=oneshot\nExecStart=' + ' '.join(map(quote, command)) + '\n'
+        timer = '[Unit]\nDescription=Refresh CPA catalogs every five minutes\n[Timer]\nOnBootSec=30\nOnUnitActiveSec=300\nPersistent=true\n[Install]\nWantedBy=timers.target\n'
+        targets[folder / (LABEL + '.service')] = (service.encode(), 0o600)
+        targets[folder / (LABEL + '.timer')] = (timer.encode(), 0o600)
+        was_enabled = run(['systemctl', '--user', 'is-enabled', LABEL + '.timer'], False)
+        was_active = run(['systemctl', '--user', 'is-active', LABEL + '.timer'], False)
+        def activate():
+            run(['systemctl', '--user', 'daemon-reload'])
+            run(['systemctl', '--user', 'enable', '--now', LABEL + '.timer'])
+        def recover():
+            run(['systemctl', '--user', 'daemon-reload'], False)
+            run(['systemctl', '--user', 'enable' if was_enabled else 'disable', LABEL + '.timer'], False)
+            run(['systemctl', '--user', 'start' if was_active else 'stop', LABEL + '.timer'], False)
+    return activate, recover
+
+
 def install(root, endpoint, binaries, schedule=True):
     if sys.version_info < (3, 11) or sys.platform not in ('darwin', 'linux'):
         raise ValueError('Python 3.11+ on macOS or Linux/WSL required')
     endpoint = remote_sync.origin(endpoint)
     root = root.expanduser().resolve()
-    if not any((root / s / 'keys/downstream.key').is_file() for s in ('personal', 'work')):
+    scopes = [s for s in ('personal', 'work') if (root / s / 'keys/downstream.key').is_file()]
+    if not scopes:
         raise ValueError('Install scoped profiles and private downstream keys first')
+    settings = root / 'gateway.json'
+    config = catalogs.read(settings) if settings.exists() else {}
+    binaries = dict(config.get('binaries', {}), **binaries)
+    if not binaries:
+        raise ValueError('Supply at least one --binary on first installation')
     for name, binary in binaries.items():
         if name not in ('codex', 'claude', 'opencode', 'pi') or not Path(binary).is_absolute() or not os.access(binary, os.X_OK):
             raise ValueError('Harness binaries must exist and be executable absolute paths')
     os.umask(0o077)
-    runtime = root / 'sync-runtime'; runtime.mkdir(mode=0o700, exist_ok=True)
-    state = root / 'sync-state'; state.mkdir(mode=0o700, exist_ok=True)
+    runtime = root / 'sync-runtime'
+    state = root / 'sync-state'
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    backup = state / 'install-backups' / stamp; backup.mkdir(parents=True, mode=0o700)
+    backup = state / 'install-backups' / stamp
     source = Path(__file__).resolve().parent
-    settings = root / 'gateway.json'
-    config = catalogs.read(settings) if settings.exists() else {}
-    config.update(endpoint=endpoint, trust_gateway_templates=True, binaries=binaries)
-    targets = {runtime / name: (source / name).read_bytes() for name in FILES}
-    targets[settings] = catalogs.encoded(config)
-    targets[root / 'launch-harness.py'] = (source / 'launch_harness.py').read_bytes()
-    for index, (path, raw) in enumerate(targets.items()):
-        if path.is_symlink():
-            raise ValueError('Refusing symlinked installation target')
-        if path.exists():
-            (backup / str(index)).write_bytes(path.read_bytes())
-        catalogs.atomic_write(path, raw, 0o600)
+    config.update(endpoint=endpoint, trust_gateway_templates=True, binaries=binaries,
+                  runtime_path=config.get('runtime_path', os.environ.get('PATH', '/usr/local/bin:/usr/bin:/bin')))
+    targets = {runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES}
+    targets[settings] = (catalogs.encoded(config), 0o600)
+    targets[root / 'launch-harness.py'] = ((source / 'launch_harness.py').read_bytes(), 0o600)
     python = str(Path(sys.executable).resolve())
     command = [python, str(runtime / 'remote_sync.py'), '--profiles', str(root), '--apply']
-    bin_dir = Path.home() / '.local/bin'; bin_dir.mkdir(parents=True, exist_ok=True)
+    bin_dir = Path.home() / '.local/bin'
     wrapper = '#!/bin/sh\nexec ' + shlex.join(command[:-1]) + ' "$@"\n'
-    catalogs.atomic_write(bin_dir / 'cpa-catalog-sync', wrapper.encode(), 0o700)
-    # Existing manual refresh entrypoint becomes the same remote reconciliation.
-    refresh = bin_dir / 'cpa-catalog-refresh'
-    if refresh.exists():
-        (backup / 'cpa-catalog-refresh').write_bytes(refresh.read_bytes())
-        catalogs.atomic_write(refresh, wrapper.encode(), 0o700)
-    for scope in ('personal', 'work'):
-        if not (root / scope / 'keys/downstream.key').is_file():
-            continue
-        scoped_bin = root / scope / 'bin'; scoped_bin.mkdir(parents=True, exist_ok=True)
+    targets[bin_dir / 'cpa-catalog-sync'] = (wrapper.encode(), 0o700)
+    if (bin_dir / 'cpa-catalog-refresh').exists():
+        targets[bin_dir / 'cpa-catalog-refresh'] = (wrapper.encode(), 0o700)
+    for scope in scopes:
         for harness in binaries:
             script = '#!/bin/sh\nexec ' + shlex.join([python, str(root / 'launch-harness.py'), scope, harness]) + ' "$@"\n'
-            # Match the existing wrappers used by T3 as well as child processes.
-            for path in (scoped_bin / harness, bin_dir / (harness + '-' + scope)):
-                if path.exists() and not path.is_symlink():
-                    (backup / (scope + '-' + path.name)).write_bytes(path.read_bytes())
-                if path.is_symlink():
-                    raise ValueError('Refusing symlinked launcher target')
-                catalogs.atomic_write(path, script.encode(), 0o700)
-    if schedule:
-        if sys.platform == 'darwin':
-            path = Path.home() / 'Library/LaunchAgents' / (LABEL + '.plist')
-            path.parent.mkdir(parents=True, exist_ok=True)
-            body = {'Label': LABEL, 'ProgramArguments': command, 'StartInterval': 300,
-                    'RunAtLoad': True, 'EnvironmentVariables': {'PATH': os.environ.get('PATH', '/usr/bin:/bin')},
-                    'StandardOutPath': str(state / 'sync.log'), 'StandardErrorPath': str(state / 'sync-error.log')}
-            subprocess.run(['launchctl', 'bootout', 'gui/' + str(os.getuid()), str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            catalogs.atomic_write(path, plistlib.dumps(body), 0o600)
-            subprocess.run(['launchctl', 'bootstrap', 'gui/' + str(os.getuid()), str(path)], check=True)
-        else:
-            folder = Path.home() / '.config/systemd/user'; folder.mkdir(parents=True, exist_ok=True)
-            # systemd uses its own quoting; JSON strings quote paths and escape
-            # backslashes, while doubled percent signs disable specifiers.
-            quote = lambda value: json.dumps(value).replace('%', '%%').replace('$', '$$')
-            service = '[Unit]\nDescription=Synchronize scoped CPA model catalogs\n[Service]\nType=oneshot\nExecStart=' + ' '.join(map(quote, command)) + '\n'
-            timer = '[Unit]\nDescription=Refresh CPA catalogs every five minutes\n[Timer]\nOnBootSec=30\nOnUnitActiveSec=300\nPersistent=true\n[Install]\nWantedBy=timers.target\n'
-            catalogs.atomic_write(folder / (LABEL + '.service'), service.encode(), 0o600)
-            catalogs.atomic_write(folder / (LABEL + '.timer'), timer.encode(), 0o600)
-            subprocess.run(['systemctl', '--user', 'daemon-reload'], check=True)
-            subprocess.run(['systemctl', '--user', 'enable', '--now', LABEL + '.timer'], check=True)
+            for path in (root / scope / 'bin' / harness, bin_dir / (harness + '-' + scope)):
+                targets[path] = (script.encode(), 0o700)
+    activate, recover = scheduler(command, state, targets) if schedule else (None, None)
+    write_transaction(targets, backup, activate, recover)
     return {'profiles': str(root), 'endpoint': endpoint, 'scheduled': schedule, 'backup': str(backup)}
 
 
