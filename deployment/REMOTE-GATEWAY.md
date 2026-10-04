@@ -107,3 +107,17 @@ Before OAuth cutover, stop the old core and transfer the final credential and
 binding state privately. Never run two refresh owners. Keep current state when
 rolling back software. If moving ownership back to the Mac, first stop the NAS
 and copy its newest auth/bindings back. Preserve aliases and downstream keys.
+
+## Existing Mac localhost connections
+
+A loopback Caddy relay preserves older clients and saved CPA provider connections at `http://127.0.0.1:8317`. It forwards to the NAS HTTPS origin with certificate validation and immediate streaming flush. It stores no OAuth credentials and does not refresh them. Managed scoped profiles use NAS HTTPS directly. Native main Codex configuration and its model catalog are not rewritten.
+
+The deployed Mac uses the Homebrew Caddy executable, `Agent Profiles/compatibility.Caddyfile`, and launch agent `me.cpa.gateway-relay`. The listener binds only to 127.0.0.1, the Caddy admin endpoint is off, and the upstream Host header matches the NAS certificate. Synology SSH forwarding is disabled, so this relay does not depend on an SSH tunnel or an sshd policy change.
+
+Keep Easy's `start-core-on-launch` disabled while the NAS owns refresh. A local core would also compete for port 8317. To roll back ownership, stop the NAS, transfer its latest credentials and bindings privately, stop the compatibility relay, and only then start the old core.
+
+## October 4 acceptance and remaining work
+
+Both NAS containers are healthy. Personal Codex OAuth and Work LiteLLM passed streamed tool calls and continuations. Cross-scope requests returned 403; an unauthenticated catalog request returned 401. Codex, Claude Code, OpenCode and Pi managed Mac launchers completed inference through the NAS; Debian's scoped Codex launcher did too. The management page and authenticated localhost relay returned 200. Mac launchd and Debian systemd user timers are installed.
+
+The Work Claude credential returns `invalid_grant` and requires account reauthentication. Two Personal image routes are absent from native account discovery, and Work DeepSeek v4.1 Flash lacks a trusted Codex prompt template; sync reports these without inventing definitions. Offline computers still need client installation and acceptance. Native Windows scheduling remains unimplemented. Cursor and Antigravity retain native T3 paths. T3/mobile saved-thread UI and concurrent NAS load have not been revalidated by these CLI checks.

@@ -1,5 +1,9 @@
 # Synology agent handoff
 
+The initial cutover completed on October 4, 2026. Both containers are healthy on DSM, all three Linux plugins registered, and streamed tool continuations passed for Personal Codex OAuth and Work LiteLLM. Managed Mac clients and Debian Codex use the NAS. The instructions below also describe disaster recovery or setup on a replacement NAS; do not repeat credential import on an already running deployment.
+
+The verified image is `ghcr.io/samaluk/cpa-gateway:20261004-tailnet-1@sha256:0720c169031e11609fd3adf85d719b6cc498525e090c17480541e267d5955506`. Homelab main pins both services to it. Idle memory measured about 62 MiB for core and 16 MiB for catalog; concurrent-load acceptance remains outstanding.
+
 ## Scope and known host facts
 
 The user has installed and logged into Tailscale on the NAS. Verify its actual address, MagicDNS name and ACL reachability rather than assuming them. The previously inspected machine is a DS916+ family host, Intel Pentium N3710 amd64, about 8 GB RAM, DSM 7.1.1, kernel 3.10.108, Docker 20.10.3 and Compose 1.28.5. It already runs the containers in `~/dev/personal/homelab` through Komodo. It had substantial swap and I/O pressure. Recheck current headroom and installed versions.

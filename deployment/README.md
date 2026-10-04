@@ -1,6 +1,6 @@
 # Start here
 
-This fork assembles one CLIProxyAPI gateway and three native plugins. The gateway routes requests to existing subscriptions and API accounts; it does not run model inference. EasyCLIProxyAPI manages the local Mac gateway. Codex, Claude Code, OpenCode and Pi remain clients. T3 Code runs those clients and uses their catalogs.
+This fork assembles one CLIProxyAPI gateway and three native plugins. The gateway routes requests to existing subscriptions and API accounts; it does not run model inference. The Synology runs the gateway in Docker through homelab/Komodo. EasyCLIProxyAPI is retained on the Mac for rollback, with automatic core startup disabled. Codex, Claude Code, OpenCode and Pi remain clients. T3 Code runs those clients and uses their catalogs.
 
 The source of truth is `stack.lock.json`, which pins reviewed commits in seven forks. The `review/*` branches hold scoped contributions. This `deployment/gateway-stack` branch adds deployment tools and documentation; do not propose the personal deployment folder as part of the upstream capability PR.
 
@@ -22,15 +22,15 @@ Routing IDs such as `personal/codex-oauth/gpt-6.1-sol` remain stable. Short labe
 
 Every base capability starts with what the provider offers. Authenticated account metadata takes precedence over general provider/model metadata. Local code translates those values into each client's schema; it must not infer entitlement from a plan name, price or model name. The fork supports ultrafast and shows it whenever the matched account reports it. See [CAPABILITIES.md](CAPABILITIES.md) for precedence, missing-data behavior and remaining gaps.
 
-## Local updates
+## Update the deployed gateway
 
 1. Read [CONTRIBUTIONS.md](CONTRIBUTIONS.md) and [SYNC.md](SYNC.md).
 2. Use Python 3.12+ on the build host. Check out exact sources with `python3 deployment/prepare_sources.py`. This creates an ignored `.sources` directory and refuses to replace changed checkouts.
 3. Test and build changed components. Publish unique versions with checksums and increasing revisions. Preserve the existing channel URLs and rollback versions.
-4. Easy's reviewed core channel and plugin store install published builds. The application itself still needs the reviewed local build until the patches land upstream or a trusted signed release is available. Do not use an official app update to replace the required safeguards.
+4. Build the pinned Linux image on a build host, publish a unique tag and digest, and update both services in `homelab/easy-cli-proxy/compose.yaml` through a PR. Komodo deploys main. Easy's local update button does not update the NAS. Catalog definitions sync to managed clients every five minutes; see [REMOTE-GATEWAY.md](REMOTE-GATEWAY.md).
 5. Preserve keys, account/session bindings, catalogs and aliases; verify both scopes and a tool continuation. Main Codex app/CLI/config/catalog changes remain the user's cutover step.
 
-Stable channels:
+Mac rollback channels, not the NAS release mechanism:
 
 - Core: `https://raw.githubusercontent.com/samaluk/CLIProxyAPI/reviewed-channel/core.json`
 - Native plugins: `https://raw.githubusercontent.com/samaluk/CLIProxyAPI/reviewed-channel/plugins.json`
@@ -43,6 +43,6 @@ Read [REMOTE-GATEWAY.md](REMOTE-GATEWAY.md) for the central catalog service and 
 
 An agent can start with:
 
-> Clone `https://github.com/samaluk/CLIProxyAPI`, branch `deployment/gateway-stack`. Read `deployment/README.md`, `deployment/stack.lock.json` and `deployment/NAS-HANDOFF.md`. Set up the pinned gateway on my Synology using the existing homelab/Komodo conventions and Tailscale. Preserve account bindings and routing IDs; transfer credentials privately. Verify the staged service before any client cutover. Keep my main Codex configuration unchanged and give me its final cutover step.
+> Clone `https://github.com/samaluk/CLIProxyAPI`, branch `deployment/gateway-stack`. Read `deployment/README.md`, `deployment/stack.lock.json` and `deployment/NAS-HANDOFF.md`. Maintain the deployed Synology gateway using the existing homelab/Komodo conventions and Tailscale. Read `deployment/REMOTE-GATEWAY.md` before changing clients. Preserve account bindings and routing IDs; keep the NAS as the sole OAuth refresh owner. Verify each release before updating additional clients. Keep my main Codex configuration unchanged and give me its final cutover step.
 
 Credentials, auth files, catalogs containing native prompts, binding state and GUI secrets are intentionally absent from this public repository. The handoff agent must use the existing private deployment or ask for the specific missing credential; it must not invent replacements.
