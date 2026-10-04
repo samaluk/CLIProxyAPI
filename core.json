@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "revision": 1790637922,
+  "revision": 1791130477,
   "repository": "samaluk/CLIProxyAPI",
-  "tag": "v8.0.3-review.88e9798.20260928",
-  "commit": "88e97989a12e772d1603e9764632fd43cfcce7e0",
+  "tag": "v8.0.11-review.0c31140.20261004",
+  "commit": "0c3114079d50e652d7778e5f41606836b25d4730",
   "assets": [
     {
       "os": "darwin",
       "arch": "arm64",
-      "url": "https://github.com/samaluk/CLIProxyAPI/releases/download/v8.0.3-review.88e9798.20260928/cli-proxy-api_darwin_arm64.tar.gz",
-      "sha256": "edc5415d552999bee5fdc544fa5d8be7e0927cda3e6c7bc3089f571cde2c3c97",
-      "size": 20838391
+      "url": "https://github.com/samaluk/CLIProxyAPI/releases/download/v8.0.11-review.0c31140.20261004/cli-proxy-api_darwin_arm64.tar.gz",
+      "sha256": "099b825819cf5237c5161bb83de9c34ca0dcee644f56d5ea91bcaa7b15db05da",
+      "size": 20758761
     }
   ]
 }

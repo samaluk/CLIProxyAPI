@@ -66,7 +66,7 @@
       "name": "OpenCode Go reviewed",
       "description": "Catalog and protocol compatibility, including DeepSeek tool reasoning.",
       "author": "samaluk",
-      "version": "0.1.9-review.606c4be.20260927",
+      "version": "0.1.10-review.62fe2a7.20261004",
       "repository": "https://github.com/samaluk/opencode-go-cliproxyapi",
       "homepage": "https://github.com/samaluk/opencode-go-cliproxyapi",
       "tags": [
@@ -79,13 +79,29 @@
           {
             "goos": "darwin",
             "goarch": "arm64",
-            "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.9-review.606c4be.20260927/reviewed-opencode-go-cliproxyapi_0.1.9-review.606c4be.20260927_darwin_arm64.zip",
-            "sha256": "2f26c8eac0843f3c5d9c53a54cb74d8ba78d7e6e68309782f73a739ecb5bf39d",
-            "size": 2180572
+            "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.10-review.62fe2a7.20261004/reviewed-opencode-go-cliproxyapi_0.1.10-review.62fe2a7.20261004_darwin_arm64.zip",
+            "sha256": "0d2886bb044d809f43da64f1020fb4e3be49d8eb4707d4907de2c3e1c726c150",
+            "size": 2200605
           }
         ]
       },
       "versions": [
+        {
+          "version": "0.1.10-review.62fe2a7.20261004",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "darwin",
+                "goarch": "arm64",
+                "url": "https://github.com/samaluk/opencode-go-cliproxyapi/releases/download/v0.1.10-review.62fe2a7.20261004/reviewed-opencode-go-cliproxyapi_0.1.10-review.62fe2a7.20261004_darwin_arm64.zip",
+                "sha256": "0d2886bb044d809f43da64f1020fb4e3be49d8eb4707d4907de2c3e1c726c150",
+                "size": 2200605
+              }
+            ]
+          },
+          "revision": 1791130478
+        },
         {
           "version": "0.1.9-review.606c4be.20260927",
           "install": {
@@ -119,7 +135,7 @@
           "revision": 1789933512
         }
       ],
-      "revision": 1790535454
+      "revision": 1791130478
     },
     {
       "id": "key-account-bind",
