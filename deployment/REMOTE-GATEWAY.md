@@ -121,3 +121,17 @@ Keep Easy's `start-core-on-launch` disabled while the NAS owns refresh. A local 
 Both NAS containers are healthy. Personal Codex OAuth and Work LiteLLM passed streamed tool calls and continuations. Cross-scope requests returned 403; an unauthenticated catalog request returned 401. Codex, Claude Code, OpenCode and Pi managed Mac launchers completed inference through the NAS; Debian's scoped Codex launcher did too. The management page and authenticated localhost relay returned 200. Mac launchd and Debian systemd user timers are installed.
 
 The Work Claude credential returns `invalid_grant` and requires account reauthentication. Two Personal image routes are absent from native account discovery, and Work DeepSeek v4.1 Flash lacks a trusted Codex prompt template; sync reports these without inventing definitions. Offline computers still need client installation and acceptance. Native Windows scheduling remains unimplemented. Cursor and Antigravity retain native T3 paths. T3/mobile saved-thread UI and concurrent NAS load have not been revalidated by these CLI checks.
+
+## Pi account selection on a shared machine
+
+Install with `--pi-selector` to add `~/.local/bin/pi`. Keep the native Pi executable in `gateway.json`; do not set that binary path to the selector. The installer remembers this opt-in across later helper updates. Put `~/.local/bin` before the package-manager Pi entry in PATH and run `rehash` in existing zsh terminals if needed.
+
+- `pi` asks Personal or Work before starting. It cancels on an empty answer.
+- `pi personal` / `pi work` and `pi-personal` / `pi-work` open the selected profile directly.
+- Children inherit `AGENT_PROFILE`, so an ordinary child `pi` uses its parent's profile. Unscoped noninteractive calls stop and require a choice.
+- Each profile has its own Pi directory, auth, settings and sessions. The legacy `~/.pi/agent` home remains available on disk; mixed historical sessions are not automatically assigned to an account.
+- The launcher sets the selected gateway origin/key and clears inherited `CLIPROXYAPI_*` overrides. This prevents provider environment precedence from silently selecting the other account.
+
+Set each profile's stock `enabledModels` to its preferred exact model followed by `cliproxyapi/personal/**` or `cliproxyapi/work/**`. Pi opens its model picker in scoped mode and limits normal cycling to that set. Its explicit all-models view can still display names from legacy combined discovery; the gateway enforces authorization with the selected key. This is ordinary profile separation, not a same-user filesystem sandbox.
+
+On the migrated Mac, Personal keeps its existing OpenCode Go GLM 5.3 Flash default. Work uses Work LiteLLM GPT-5.6 Luna while Work Claude requires reauthentication. Changing a picker default may also require moving that exact ID to the front of `enabledModels`, because Pi prioritizes the first scoped model on a new session.

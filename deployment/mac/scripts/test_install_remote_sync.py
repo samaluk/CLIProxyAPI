@@ -11,6 +11,37 @@ import launch_harness
 
 
 class InstallTests(unittest.TestCase):
+    def test_pi_selector_cannot_be_its_own_native_binary(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); root = self.fixture(home)
+            entry = home/'.local/bin/pi'; entry.parent.mkdir(parents=True)
+            entry.write_text('#!/bin/sh\nexit 0\n'); entry.chmod(0o700)
+            with patch.object(Path, 'home', return_value=home):
+                with self.assertRaisesRegex(ValueError, 'native Pi binary'):
+                    installer.install(root, 'https://nas.example', {'pi': str(entry)}, False, True)
+            self.assertFalse((root/'gateway.json').exists())
+
+    def test_pi_selector_survives_reinstallation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); root = self.fixture(home)
+            with patch.object(Path, 'home', return_value=home):
+                installer.install(root, 'https://nas.example', {'pi': sys.executable}, False, True)
+                installer.install(root, 'https://nas.example', {}, False)
+            self.assertTrue(json.loads((root/'gateway.json').read_text())['pi_selector'])
+            self.assertIn('select-pi.py', (home/'.local/bin/pi').read_text())
+
+    def test_pi_connection_cannot_inherit_the_other_account(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.fixture(Path(folder).resolve())
+            (root/'gateway.json').write_text(json.dumps({'endpoint':'https://nas.example','binaries':{'pi':sys.executable}}))
+            with patch.object(launch_harness,'ROOT',root), patch.object(sys,'argv',['launch','personal','pi']), patch.dict(os.environ,{'CLIPROXYAPI_BASE_URL':'https://wrong.example','CLIPROXYAPI_API_KEY':'wrong-key','CLIPROXYAPI_PROVIDER_ID':'wrong-provider'}), patch.object(os,'execve') as execute:
+                launch_harness.main()
+            env = execute.call_args.args[2]
+            self.assertEqual(env['CLIPROXYAPI_BASE_URL'], 'https://nas.example')
+            self.assertEqual(env['CLIPROXYAPI_API_KEY'], 'fixture-downstream-key')
+            self.assertEqual(env['PI_CODING_AGENT_DIR'], str(root/'personal/pi'))
+            self.assertNotIn('CLIPROXYAPI_PROVIDER_ID', env)
+
     def fixture(self, home):
         root = home / 'profiles'
         path = root / 'personal/keys/downstream.key'

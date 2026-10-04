@@ -23,7 +23,7 @@ def gateway_settings():
 
 def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ('personal', 'work') or sys.argv[2] not in ('codex', 'claude', 'opencode', 'pi'):
-        sys.exit('Usage: launch-harness.py personal|work codex|claude|opencode [arguments]')
+        sys.exit('Usage: launch-harness.py personal|work codex|claude|opencode|pi [arguments]')
     scope, harness = sys.argv[1:3]
     profile = ROOT / scope
     settings, endpoint = gateway_settings()
@@ -41,7 +41,7 @@ def main():
     for name in list(env):
         if name in server_auth:
             continue
-        if name.startswith(('ANTHROPIC_', 'CLAUDE_CODE_OAUTH_', 'CODEX_EXEC_SERVER_', 'OPENCODE_')) or name in (
+        if name.startswith(('ANTHROPIC_', 'CLAUDE_CODE_OAUTH_', 'CODEX_EXEC_SERVER_', 'OPENCODE_', 'CLIPROXYAPI_')) or name in (
                 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_API_BASE', 'CODEX_ELECTRON_USER_DATA_PATH',
                 'CLAUDE_CODE_MAX_CONTEXT_TOKENS', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
                 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'):
@@ -52,6 +52,8 @@ def main():
     env.update({
         'AGENT_PROFILE': scope,
         'CPA_API_KEY': key,
+        'CLIPROXYAPI_API_KEY': key,
+        'CLIPROXYAPI_BASE_URL': endpoint,
         'CODEX_HOME': str(profile / 'codex'),
         'CLAUDE_CONFIG_DIR': str(profile / 'claude'),
         'PI_CODING_AGENT_DIR': str(profile / 'pi'),
