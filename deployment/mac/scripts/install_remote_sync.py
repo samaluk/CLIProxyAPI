@@ -123,7 +123,7 @@ def scheduler(command, state, targets):
     return activate, recover
 
 
-def install(root, endpoint, binaries, schedule=True):
+def install(root, endpoint, binaries, schedule=True, pi_selector=False):
     if sys.version_info < (3, 11) or sys.platform not in ('darwin', 'linux'):
         raise ValueError('Python 3.11+ on macOS or Linux/WSL required')
     endpoint = remote_sync.origin(endpoint)
@@ -133,6 +133,7 @@ def install(root, endpoint, binaries, schedule=True):
         raise ValueError('Install scoped profiles and private downstream keys first')
     settings = root / 'gateway.json'
     config = catalogs.read(settings) if settings.exists() else {}
+    pi_selector = pi_selector or config.get('pi_selector', False)
     binaries = dict(config.get('binaries', {}), **binaries)
     if not binaries:
         raise ValueError('Supply at least one --binary on first installation')
@@ -147,12 +148,22 @@ def install(root, endpoint, binaries, schedule=True):
     source = Path(__file__).resolve().parent
     config.update(endpoint=endpoint, trust_gateway_templates=True, binaries=binaries,
                   runtime_path=config.get('runtime_path', os.environ.get('PATH', '/usr/local/bin:/usr/bin:/bin')))
+    if pi_selector:
+        if 'pi' not in binaries:
+            raise ValueError('The Pi selector requires an installed Pi binary')
+        if Path(binaries['pi']).resolve() == (Path.home() / '.local/bin/pi').resolve():
+            raise ValueError('Use the native Pi binary, not the profile selector')
+        config['pi_selector'] = True
     targets = {runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES}
     targets[settings] = (catalogs.encoded(config), 0o600)
     targets[root / 'launch-harness.py'] = ((source / 'launch_harness.py').read_bytes(), 0o600)
     python = python_runtime()
     command = [python, str(runtime / 'remote_sync.py'), '--profiles', str(root), '--apply']
     bin_dir = Path.home() / '.local/bin'
+    if pi_selector:
+        targets[root / 'select-pi.py'] = ((source / 'select_pi.py').read_bytes(), 0o600)
+        entry = '#!/bin/sh\nexec ' + shlex.join([python, str(root / 'select-pi.py')]) + ' "$@"\n'
+        targets[bin_dir / 'pi'] = (entry.encode(), 0o700)
     wrapper = '#!/bin/sh\nexec ' + shlex.join(command[:-1]) + ' "$@"\n'
     targets[bin_dir / 'cpa-catalog-sync'] = (wrapper.encode(), 0o700)
     if (bin_dir / 'cpa-catalog-refresh').exists():
@@ -173,5 +184,6 @@ if __name__ == '__main__':
     parser.add_argument('--endpoint', required=True)
     parser.add_argument('--binary', action='append', default=[], metavar='NAME=ABSOLUTE_PATH')
     parser.add_argument('--no-schedule', action='store_true')
+    parser.add_argument('--pi-selector', action='store_true', help='Install an explicit personal/work chooser as ~/.local/bin/pi')
     args = parser.parse_args()
-    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule), indent=2))
+    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector), indent=2))
