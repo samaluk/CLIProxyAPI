@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import plistlib
 import shlex
+import shutil
 import subprocess
 import sys
 
@@ -19,6 +20,19 @@ import refresh_scoped_catalogs as catalogs
 
 FILES = ('remote_sync.py', 'refresh_scoped_catalogs.py', 'model_labels.py', 'codex_account_tiers.py')
 LABEL = 'me.cpa.catalog-sync'
+
+
+def python_runtime():
+    """Keep stable package-manager entrypoints instead of resolving Cellar paths."""
+    preferred = ['/opt/homebrew/bin/python3', '/usr/local/bin/python3'] if sys.platform == 'darwin' else ['/usr/bin/python3', '/usr/local/bin/python3']
+    for candidate in [*preferred, shutil.which('python3'), sys.executable]:
+        if not candidate or not Path(candidate).is_absolute() or not os.access(candidate, os.X_OK):
+            continue
+        check = subprocess.run([candidate, '-c', 'import sys; sys.exit(sys.version_info < (3, 11))'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if check.returncode == 0:
+            return candidate
+    raise ValueError('No stable Python 3.11+ interpreter is available')
 
 
 def write_transaction(targets, backup, activate=None, recover=None):
@@ -136,7 +150,7 @@ def install(root, endpoint, binaries, schedule=True):
     targets = {runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES}
     targets[settings] = (catalogs.encoded(config), 0o600)
     targets[root / 'launch-harness.py'] = ((source / 'launch_harness.py').read_bytes(), 0o600)
-    python = str(Path(sys.executable).resolve())
+    python = python_runtime()
     command = [python, str(runtime / 'remote_sync.py'), '--profiles', str(root), '--apply']
     bin_dir = Path.home() / '.local/bin'
     wrapper = '#!/bin/sh\nexec ' + shlex.join(command[:-1]) + ' "$@"\n'
