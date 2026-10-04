@@ -4,6 +4,8 @@ WORKDIR /build
 COPY stack.lock.json build_linux.py source_manifest.py ./
 COPY .sources/ .sources/
 RUN python3 build_linux.py
+COPY gateway/ gateway/
+RUN cd gateway && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -trimpath -o /out/cpa-gateway .
 
 FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata curl && rm -rf /var/lib/apt/lists/*

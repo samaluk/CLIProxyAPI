@@ -1,0 +1,109 @@
+# One gateway, several clients
+
+The NAS owns provider credentials, refreshes OAuth tokens and routes inference.
+Clients keep only their scoped downstream keys and model definitions. Moving the
+API server alone would leave model catalogs stale on every client, so the
+container also serves an authenticated catalog at `/catalog/v1`.
+
+```text
+T3 / scoped Codex, Claude Code, OpenCode, Pi
+  -> Tailscale HTTPS origin
+     -> catalog service: /catalog/v1
+     -> CLIProxyAPI: /v1/*, /v1/messages, management UI
+        -> existing subscriptions and API accounts
+```
+
+The catalog service exports only the routes for the requesting personal or work
+key. For Codex OAuth it reads the matched account's official model discovery,
+which outranks generic proxy metadata. It preserves explicitly empty effort or
+speed lists and does not infer entitlements from prices or plan names. A route
+shared by multiple accounts is deferred because its account capability set is
+ambiguous. Other providers use the gateway's route metadata. Missing fields keep
+saved client fallbacks; they are not evidence of an entitlement.
+
+Native prompt templates are separate from capability data. An administrator
+provisions `trusted-templates.json` privately. Clients explicitly trust that file
+through the installed gateway configuration; generic proxy prose never replaces
+native instructions. New Codex entries require an exact canonical template.
+Models missing provider discovery or a trusted template remain in the sync
+receipt for follow-up. Register newly released models on the verified account
+in the gateway first. Catalog refresh does not invent routes.
+
+## Install on a client
+
+Requires Python 3.11 or newer, Tailscale connectivity, installed harness binaries
+and private scoped profiles. macOS uses
+`~/Library/Application Support/Agent Profiles`; Linux/WSL can use
+`~/.config/cpa/profiles`. Never copy Mac binary paths into a Linux configuration.
+Provision each scope with `keys/downstream.key` and the harness configuration
+files it uses. Keep work keys only on machines authorized for work.
+
+From this fork, run the installer with the actual absolute paths on that host:
+
+```sh
+python3 deployment/mac/scripts/install_remote_sync.py \
+  --profiles "$HOME/.config/cpa/profiles" \
+  --endpoint https://YOUR-NAS.YOUR-TAILNET.ts.net \
+  --binary codex=/absolute/path/to/codex \
+  --binary opencode=/absolute/path/to/opencode
+cpa-catalog-sync --apply
+```
+
+Add `--binary claude=...` or `--binary pi=...` when installed. Pi needs its stock
+CPA provider package in the profile and Bun for its installed mapper. Reinstall
+with no binary flags to retain existing paths. The installer copies reviewed
+Python helpers locally; each refresh downloads model data only. It never
+executes gateway-supplied scripts or changes client binaries.
+
+It installs `codex-personal`, `codex-work` and equivalent wrappers for the
+configured harnesses, plus each profile's child-process wrappers. Existing T3
+instances can keep using those wrapper paths. The shared launcher reads one
+`gateway.json` origin. Existing CPA provider IDs stay unchanged so saved threads
+can resume. Native `~/.codex/config.toml` and its active catalog are protected;
+changing the coordinating Codex app remains a separate cutover step.
+
+The installer adds a five-minute launchd job on macOS or a systemd user timer on
+Linux. Use `--no-schedule` for staging. Linux user timers require a running user
+manager; enable lingering administratively if updates must continue after
+logout. Native Windows installation is not yet implemented; use WSL or finish a
+Task Scheduler adapter before claiming that machine is migrated.
+
+## What updates propagate
+
+`cpa-catalog-sync` previews; `cpa-catalog-sync --apply` reconciles existing scoped
+files. The former `cpa-catalog-refresh` command uses this same path after install.
+A change to model limits, input/output types, efforts, supported runtime flags
+or speed tiers updates each supported client schema. Model IDs, user defaults
+where still valid, saved prompts and temporarily missing models remain intact.
+Labels use the shared short naming rules. Claude reads limits from the scoped
+catalog through its launcher. OpenCode and Pi receive their own schemas.
+
+T3 and long-running harness processes may cache a catalog. Reload that provider
+or start a new process to see new definitions. Sync does not terminate live
+threads. The stock T3 initial OpenCode catalog race remains a separate upstream
+issue; automatic file propagation does not fix that loader.
+
+The server caches discovery for one minute and clients use conditional ETags.
+Client caches are bound to the origin, scope and downstream key. HTTP failures,
+redirects, invalid/empty catalogs, wrong-scope routes and concurrent file edits
+fail closed. Saved files remain available. `sync-state/status.json` records the
+last successful run, revision, deferred routes and missing templates. Scheduler
+logs record failed runs. Backups and installation restore manifests stay private
+under `sync-state/`.
+
+## Software releases and rollback
+
+Use the image build in `deployment/Dockerfile` and `stack.lock.json`. Publish a
+unique version and digest, update both services in the homelab Compose file in
+one PR, then let Komodo deploy from main. Core and native plugins must always
+come from the same reviewed image. Catalog updates need no image reinstall;
+code, plugin or capability-mapping changes do.
+
+Do not deploy the Mac plugin store's dylib entries into the Linux image. Easy's
+local update button does not manage the NAS container lifecycle. Use the NAS
+management UI for account/model configuration and the homelab PR for software.
+
+Before OAuth cutover, stop the old core and transfer the final credential and
+binding state privately. Never run two refresh owners. Keep current state when
+rolling back software. If moving ownership back to the Mac, first stop the NAS
+and copy its newest auth/bindings back. Preserve aliases and downstream keys.
