@@ -1,0 +1,18 @@
+version: "2.4"
+services:
+  cpa:
+    image: cpa-reviewed:20261004
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8317:8317"
+    volumes:
+      - ./data:/data
+    working_dir: /data
+    command: ["/opt/cpa/cli-proxy-api", "-config", "/data/config.yaml"]
+    mem_limit: 512m
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

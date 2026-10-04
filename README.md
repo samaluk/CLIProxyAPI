@@ -1,3 +1,5 @@
+> **Personal gateway stack:** Start with [the deployment guide](deployment/README.md) on the `deployment/gateway-stack` branch. It contains the reviewed source lock, setup tools, contribution map, and NAS handoff.
+
 # CLI Proxy API
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)

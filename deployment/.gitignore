@@ -1,0 +1,7 @@
+.sources/
+data/
+*.private.*
+.env
+__pycache__/
+*.pyc
+.prepare-*/

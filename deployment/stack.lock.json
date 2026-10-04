@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-04",
+  "components": [
+    {
+      "repository": "samaluk/CLIProxyAPI",
+      "upstream": "https://github.com/router-for-me/CLIProxyAPI",
+      "upstream_ref": "dev",
+      "upstream_commit": "678a92578ca346ff9e77d4811cbd41f899a8cc96",
+      "branch": "review/aliased-model-cooldowns",
+      "commit": "0c3114079d50e652d7778e5f41606836b25d4730",
+      "role": "gateway",
+      "version": "8.0.11-review.0c31140.20261004"
+    },
+    {
+      "repository": "samaluk/EasyCLIProxyAPI",
+      "upstream": "https://github.com/router-for-me/EasyCLIProxyAPI",
+      "upstream_ref": "main",
+      "upstream_commit": "d4e49a240c57985dbbb49a17f8b44a28ac896401",
+      "branch": "review/plugin-update-revisions",
+      "commit": "0221e3a750edbf8c9f2279dec2bfe89dd95ad4bb",
+      "role": "desktop management"
+    },
+    {
+      "repository": "samaluk/cpa-plugin-commandcode",
+      "upstream": "https://github.com/ahoo/cpa-plugin-commandcode.git",
+      "upstream_ref": "main",
+      "upstream_commit": "b094d95d779c24d1060f99ddf79a8f270f7f4a25",
+      "branch": "review/model-capabilities",
+      "commit": "0d902aea28626c876791f65be5e66e43bc2dc644",
+      "role": "native plugin",
+      "version": "0.3.3-review.0d902ae.20260927"
+    },
+    {
+      "repository": "samaluk/opencode-go-cliproxyapi",
+      "upstream": "https://github.com/massiveits/opencode-go-cliproxyapi.git",
+      "upstream_ref": "main",
+      "upstream_commit": "0d7a854169e3acdfe480f666880727f69c83b3da",
+      "branch": "review/harness-compatibility",
+      "commit": "62fe2a77149e63f5bdcc3e6e63c8273005e6603a",
+      "role": "native plugin",
+      "version": "0.1.10-review.62fe2a7.20261004"
+    },
+    {
+      "repository": "samaluk/cpa-key-account-bind",
+      "upstream": "https://github.com/FFatTiger/cpa-key-account-bind",
+      "upstream_ref": "main",
+      "upstream_commit": "ef75b6637f78894072cc793682934e291e9d0304",
+      "branch": "review/scope-policy-errors",
+      "commit": "e29b6f3e2ef1e13a3cc50db3d992a7641c48dd4a",
+      "role": "native plugin",
+      "version": "0.3.0-review.e29b6f3.20260928"
+    },
+    {
+      "repository": "samaluk/pi-cliproxyapi-provider",
+      "upstream": "https://github.com/router-for-me/pi-cliproxyapi-provider",
+      "upstream_ref": "main",
+      "upstream_commit": "cfb449a22c7ef03a0d67c8ce23c1454c79c8562a",
+      "branch": "review/model-capabilities",
+      "commit": "571839998ac12500663572e45a62064db02fee33",
+      "role": "optional contribution; stock deployed"
+    },
+    {
+      "repository": "samaluk/t3code",
+      "upstream": "https://github.com/pingdotgg/t3code",
+      "upstream_ref": "main",
+      "upstream_commit": "4ee6bfd50ef4a089440d5c3662db2298da9cc50e",
+      "branch": "review/model-capabilities",
+      "commit": "17823601b72603530b5c0b6a9abbb8b6de20edc5",
+      "role": "optional contribution; stock deployed"
+    }
+  ]
+}
