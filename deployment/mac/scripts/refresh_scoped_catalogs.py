@@ -254,8 +254,8 @@ def change_report(before, after, kind, scope):
 def permitted_paths(profiles):
     return {profiles/s/rel for s in SCOPES for rel in ('catalogs/codex-catalog.json', 'config/opencode/opencode.json', 'pi/cliproxyapi-models.json')}
 
-def validate_targets(paths, profiles, forbidden=()):
-    permitted = permitted_paths(profiles)
+def validate_targets(paths, profiles, forbidden=(), extra_paths=()):
+    permitted = permitted_paths(profiles) | set(extra_paths)
     forbidden = {p.resolve() for p in forbidden}
     for path in paths:
         if path not in permitted or path.resolve() in forbidden: raise ValueError('Refusing non-scoped or main Codex target')
@@ -271,8 +271,8 @@ def atomic_write(path, raw, mode):
     finally:
         if os.path.exists(temporary): os.unlink(temporary)
 
-def apply_changes(changes, profiles, backup_root, forbidden=()):
-    validate_targets(changes, profiles, forbidden)
+def apply_changes(changes, profiles, backup_root, forbidden=(), extra_paths=()):
+    validate_targets(changes, profiles, forbidden, extra_paths)
     for path, item in changes.items():
         if path.read_bytes() != item['before']: raise ValueError('A target changed after preview; rerun preview')
     backup_root.mkdir(parents=True, exist_ok=True, mode=0o700)
