@@ -1,10 +1,43 @@
 import json
+import contextlib
+import io
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import remote_sync
+
+
+class DiagnosticsTests(unittest.TestCase):
+    def tearDown(self): remote_sync.FAILURE_CONTEXT.clear()
+
+    def test_failed_fetch_records_exact_static_cause_and_frame_without_touching_status(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve();state=root/'sync-state';state.mkdir();status=state/'status.json';status.write_text('last success')
+            remote_sync.phase('fetch-catalog', root=root, scope='work')
+            def fail(): raise ValueError('Gateway catalog unavailable: HTTP 503')
+            with patch.object(remote_sync,'main',side_effect=lambda: (remote_sync.phase('fetch-catalog',root=root,scope='work'),fail())), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(remote_sync.run(),1)
+            receipt_path=next((state/'diagnostics').glob('*-failure.json'));receipt=json.loads(receipt_path.read_text())
+            self.assertEqual(receipt['message'],'Gateway catalog unavailable: HTTP 503')
+            self.assertEqual(receipt['stage'],'fetch-catalog');self.assertEqual(receipt['scope'],'work')
+            self.assertEqual(receipt['traceback'][-1]['function'],'fail')
+            self.assertGreater(receipt['traceback'][-1]['line'],0)
+            self.assertEqual(receipt_path.stat().st_mode & 0o777,0o600)
+            self.assertEqual(status.read_text(),'last success')
+
+    def test_unknown_exception_text_and_diagnostic_write_errors_are_safe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve(); remote_sync.phase('prepare-profile',root=root,scope='personal')
+            try: raise ValueError('private credential/provider body')
+            except ValueError as error: path=remote_sync.failure_receipt(error)
+            self.assertNotIn('private credential/provider body',path.read_text())
+            def fail(): remote_sync.phase('fetch-catalog',root=root);raise ValueError('sensitive')
+            with patch.object(remote_sync,'main',side_effect=fail),patch.object(remote_sync,'failure_receipt',side_effect=OSError('disk full')),contextlib.redirect_stderr(io.StringIO()) as stderr:
+                self.assertEqual(remote_sync.run(),1)
+            self.assertNotIn('sensitive',stderr.getvalue())
+            self.assertIn('ValueError',stderr.getvalue())
 
 
 class NativePiTests(unittest.TestCase):
