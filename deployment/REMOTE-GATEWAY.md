@@ -157,3 +157,13 @@ The sync helper detects the installed OpenCode version before rendering its mana
 On October 5, all 73 Personal and 29 Work routes matched the gateway evidence in the stock OpenCode 2 API after applying this repair. T3's refreshed DeepSeek V4.1 Flash picker displayed only Low, Medium and High, matching that CommandCode route's published metadata. The main Codex configuration was untouched. No matching OpenCode issue was found in the issue search; an upstream report should cover V1 disabled-variant import compatibility, not request hardcoded model effort rules.
 
 After a sync, T3 may retain an older model list until its next provider health check. Use **Settings → Providers → Refresh provider status** to refresh it immediately. `deployment/mac/scripts/check_opencode_efforts.py` checks both running Mac services against cached gateway evidence without sending inference requests. Stock T3 and OpenCode do not need patches for this configuration workaround.
+
+## Retired OpenCode V1 prompt loader
+
+The local `cpa-prompt-identity.js` workaround corrected OpenCode 1's substring-based selection of a Codex prompt for ordinary GPT routes containing `codex-oauth`. Its V1 hook function is not a valid OpenCode 2 plugin definition and causes a server plugin error.
+
+OpenCode 2.0.22's [stock OpenAI prompt selector](https://github.com/anomalyco/opencode/blob/v2.0.22/packages/core/src/plugin/optimize.ts) now chooses the GPT or Astra prompt using `gpt` and `astra` in the model ID. The old correction is unnecessary and is retired rather than ported. Native custom-agent prompt handling remains intact.
+
+When installed against stock OpenCode 2, the client installer archives only unchanged owned loaders in the Personal and Work profiles. It also handles the global loader when the global command resolves to the same binary. Loader contents and all imported legacy helper/prompt files must match their ownership fingerprints; customized files, other plugins and V1 installations are retained. Removal participates in the private backup transaction, including concurrent-edit detection and rollback on failed activation. The source workaround remains in the lab for V1 rollback, outside OpenCode's discovery directories.
+
+October 5 validation: the previously failing loader disappeared from the global, Personal and Work server plugin-status APIs. All plugins settled with zero failures at both the home directory and the current workspace; the native OpenAI prompt plugin remained active. The main Codex configuration, gateway authentication and NAS deployment were unchanged. No upstream OpenCode patch is needed for this retirement because the new plugin API is an intentional V2 migration requirement.
