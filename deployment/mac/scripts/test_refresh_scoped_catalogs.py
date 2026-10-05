@@ -1,4 +1,4 @@
-import copy,json,pathlib,tempfile,unittest
+import copy,json,pathlib,subprocess,tempfile,unittest
 from unittest.mock import patch
 import refresh_scoped_catalogs as refresh
 
@@ -29,6 +29,34 @@ class TransformTests(unittest.TestCase):
   original={'model':'cpa-work/'+ROUTE,'user':True,'provider':{'cpa-work':{'options':{'apiKey':'private'},'models':{ROUTE:{'name':'my label','options':{'reasoningEffort':'high','temperature':.2},'variants':{'max':{'custom':1},'ultra':{'reasoningEffort':'ultra'}},'headers':{'custom':'value'}},'legacy-alias':{'name':'saved thread alias'}}}}}
   out=refresh.opencode_update(original,{ROUTE:FRESH},'work');provider=out['provider']['cpa-work'];model=provider['models'][ROUTE]
   self.assertEqual(out['model'],original['model']);self.assertEqual(provider['options'],original['provider']['cpa-work']['options']);self.assertIn('legacy-alias',provider['models']);self.assertEqual(model['name'],'my label');self.assertEqual(model['options'],{'reasoningEffort':'high','temperature':.2});self.assertEqual(model['variants']['max'],{'custom':1,'reasoningEffort':'max'});self.assertTrue(model['variants']['ultra']['disabled']);self.assertEqual(model['limit'],{'context':1050000,'output':128000})
+ def test_opencode_version_detection_accepts_stock_formats_and_rejects_unknown(self):
+  for value,major in [('1.2.17',1),('opencode v2.0.22\n',2),('opencode v2.1.0-beta.1',2)]:
+   with patch.object(refresh.subprocess,'run',return_value=subprocess.CompletedProcess([],0,value)):
+    self.assertEqual(refresh.opencode_major_version('/stock/opencode'),major)
+  for value,status in [('opencode v3.0.0',0),('unknown',0),('2.0.22',1)]:
+   with patch.object(refresh.subprocess,'run',return_value=subprocess.CompletedProcess([],status,value)):
+    with self.assertRaises(ValueError):refresh.opencode_major_version('/stock/opencode')
+ def test_opencode_v2_omits_disabled_variants_and_refreshes_verified_aliases(self):
+  route='personal/commandcode/deepseek-v4.1-flash';alias='commandcode/deepseek-v4.1-flash'
+  fresh={'slug':route,'supported_reasoning_levels':[{'effort':x} for x in ('low','medium','high')]}
+  model={'options':{'reasoningEffort':'ultra','temperature':.2},'variants':{'high':{'custom':1},'ultra':{'disabled':True},'fast':{'disabled':True},'custom':{'temperature':.1}}}
+  original={'provider':{'cpa-personal':{'models':{route:copy.deepcopy(model),alias:copy.deepcopy(model),'saved-missing':{'variants':{'off':{'disabled':True},'user':{'temperature':.5}}}}}}}
+  out=refresh.opencode_update(original,{route:fresh},'personal',major_version=2)
+  for name in (route,alias):
+   m=out['provider']['cpa-personal']['models'][name]
+   self.assertEqual(set(m['variants']),{'low','medium','high','custom'})
+   self.assertEqual(m['variants']['high'],{'custom':1,'reasoningEffort':'high'})
+   self.assertEqual(m['options'],{'temperature':.2})
+  self.assertEqual(out['provider']['cpa-personal']['models']['saved-missing']['variants'],{'user':{'temperature':.5}})
+  self.assertEqual(out,refresh.opencode_update(out,{route:fresh},'personal',major_version=2))
+  self.assertIn('ultra',original['provider']['cpa-personal']['models'][route]['variants'])
+ def test_opencode_v2_explicit_empty_efforts_do_not_get_defaults(self):
+  model=refresh.opencode_update({'provider':{'cpa-work':{'models':{}}}},{ROUTE:{'supported_reasoning_levels':[]}},'work',major_version=2)['provider']['cpa-work']['models'][ROUTE]
+  self.assertFalse(model['reasoning']);self.assertEqual(model['variants'],{})
+ def test_opencode_v2_missing_metadata_retains_enabled_efforts(self):
+  original={'provider':{'cpa-work':{'models':{ROUTE:{'variants':{'high':{'reasoningEffort':'high'},'max':{'disabled':True}}}}}}}
+  model=refresh.opencode_update(original,{ROUTE:{'slug':ROUTE}},'work',major_version=2)['provider']['cpa-work']['models'][ROUTE]
+  self.assertEqual(model['variants'],{'high':{'reasoningEffort':'high'}})
  def test_opencode_never_invents_missing_output_or_file_to_pdf(self):
   out=refresh.opencode_update({'provider':{'cpa-work':{'models':{}}}},{ROUTE:{'slug':ROUTE,'context_window':100,'supported_input_modalities':['text','file']}},'work')
   m=out['provider']['cpa-work']['models'][ROUTE];self.assertNotIn('limit',m);self.assertEqual(m['modalities']['input'],['text'])

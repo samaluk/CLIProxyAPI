@@ -147,3 +147,13 @@ The installer remembers the opt-in. `cpa-catalog-sync --apply` and its five-minu
 Both Personal and Work profiles and matching `opencode_personal` / `opencode_work` T3 instances must already exist. The helper fails instead of modifying an unrelated instance or moving a running service from another port. For a binary update, update stock OpenCode normally, then restart each scoped service during an idle window with `opencode-personal service restart` and `opencode-work service restart`, and run catalog sync. T3's own binary update button updates the CLI, not an already-running external service.
 
 October 4 validation: OpenCode 2.0.22 returned 106 Personal and 29 Work configured models. The stock T3 nightly picker displayed gateway models for both accounts after the connection change. Remove this workaround only after #15155 is fixed and a fresh T3-managed server discovers the complete catalog for both profiles.
+
+## OpenCode 2 reasoning variants
+
+OpenCode 2.0.22 imports V1 `variants` objects but exposes entries marked `disabled: true` through `/api/model`. T3 then lists those disabled levels in its effort picker. This is separate from T3's initial model discovery race above.
+
+The sync helper detects the installed OpenCode version before rendering its managed provider. OpenCode 1 retains disabled entries to suppress generated defaults. OpenCode 2 receives only enabled variants; known effort levels come from the scoped gateway's `supported_reasoning_levels`, including an explicit empty list. Unknown metadata retains enabled local definitions. Verified compatibility aliases are refreshed from the same canonical route, while unrelated saved routes and user options remain intact. Unsupported versions fail before the catalog transaction.
+
+On October 5, all 73 Personal and 29 Work routes matched the gateway evidence in the stock OpenCode 2 API after applying this repair. T3's refreshed DeepSeek V4.1 Flash picker displayed only Low, Medium and High, matching that CommandCode route's published metadata. The main Codex configuration was untouched. No matching OpenCode issue was found in the issue search; an upstream report should cover V1 disabled-variant import compatibility, not request hardcoded model effort rules.
+
+After a sync, T3 may retain an older model list until its next provider health check. Use **Settings → Providers → Refresh provider status** to refresh it immediately. `deployment/mac/scripts/check_opencode_efforts.py` checks both running Mac services against cached gateway evidence without sending inference requests. Stock T3 and OpenCode do not need patches for this configuration workaround.

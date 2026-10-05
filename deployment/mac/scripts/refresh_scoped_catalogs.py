@@ -7,7 +7,7 @@ provider has no scope filter. Missing routes are retained unless explicitly reti
 """
 from __future__ import annotations
 import argparse, copy, datetime, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, tomllib, urllib.parse, urllib.request
-from model_labels import model_label
+from model_labels import model_label, canonical_route
 import codex_account_tiers
 
 ROOT = pathlib.Path(os.environ.get('CPA_STATE_DIR', str(pathlib.Path.home()/'.local/state/cpa-stack')))
@@ -156,14 +156,42 @@ def codex_update(document, live, scope, templates=None):
         if limit is not None: model['max_tokens'] = limit
     return result, pending
 
-def opencode_update(document, live, scope):
+def opencode_major_version(binary=None):
+    binary = binary or shutil.which('opencode')
+    if not binary:
+        raise ValueError('OpenCode executable is required to choose its config format')
+    try:
+        result = subprocess.run([binary, '--version'], stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, text=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError('Could not determine installed OpenCode version') from None
+    match = re.search(r'^(?:opencode\s+)?v?(\d+)\.\d+\.\d+(?:[-+][^\s]+)?\s*$', result.stdout.strip())
+    if result.returncode or not match or int(match[1]) not in (1, 2):
+        raise ValueError('Unsupported OpenCode version; retain saved configuration')
+    return int(match[1])
+
+
+def opencode_update(document, live, scope, *, major_version=1):
     result = copy.deepcopy(document)
     provider = result.get('provider', {}).get('cpa-' + scope)
     if not isinstance(provider, dict): raise ValueError('Expected existing scoped OpenCode provider')
     models = provider.setdefault('models', {})
     for route in RETIRED: models.pop(route, None)
-    for route, fresh in live.items():
-        if not route.startswith(scope + '/') or route in RETIRED: continue
+    sources = {route: fresh for route, fresh in live.items()
+               if route.startswith(scope + '/') and route not in RETIRED}
+    # Refresh only explicitly verified aliases; never infer ownership from a family.
+    for route in models:
+        canonical = canonical_route(route)
+        if canonical != route and canonical in sources:
+            sources[route] = sources[canonical]
+    if major_version == 2:
+        # V2's V1 importer exposes disabled entries as selectable variants.
+        # This also repairs saved models with temporarily unavailable metadata.
+        for model in models.values():
+            if isinstance(model.get('variants'), dict):
+                model['variants'] = {name: entry for name, entry in model['variants'].items()
+                                     if entry.get('disabled') is not True}
+    for route, fresh in sources.items():
         model = models.setdefault(route, {'name': model_label(route)})
         context = fresh.get('context_window', fresh.get('max_context_window'))
         maximum = output_limit(fresh)
@@ -183,6 +211,9 @@ def opencode_update(document, live, scope):
             model['reasoning'] = any(x != 'none' for x in allowed)
             variants = model.setdefault('variants', {})
             for level in EFFORTS:
+                if major_version == 2 and level not in allowed:
+                    variants.pop(level, None)
+                    continue
                 entry = variants.setdefault(level, {})
                 if level in allowed:
                     entry.pop('disabled', None)
@@ -352,7 +383,7 @@ def main():
             known_routes.update(projection(document, kind, scope))
             if kind == 'codex':
                 updated, pending = codex_update(document, live, scope, templates)
-            elif kind == 'opencode': updated = opencode_update(document, live, scope)
+            elif kind == 'opencode': updated = opencode_update(document, live, scope, major_version=opencode_major_version())
             else: updated = pi_update(document, mapper, live)
             report = {'scope': scope, 'harness': kind, 'path': str(path), **change_report(document, updated, kind, scope)}
             report['retainedMissingRoutes'] = sorted(k for k in projection(updated, kind, scope) if k not in live)

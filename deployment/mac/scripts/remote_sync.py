@@ -125,7 +125,9 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         prepare(path, codex_endpoint(path.read_text(), endpoint).encode())
     path = profile / 'config/opencode/opencode.json'
     if path.exists():
-        updated = catalogs.opencode_update(catalogs.read(path), live, scope)
+        binary = (binaries or {}).get('opencode')
+        major = catalogs.opencode_major_version(binary)
+        updated = catalogs.opencode_update(catalogs.read(path), live, scope, major_version=major)
         provider = updated['provider']['cpa-' + scope]
         provider.setdefault('options', {})['baseURL'] = endpoint + '/v1'
         for route, model in provider['models'].items():
