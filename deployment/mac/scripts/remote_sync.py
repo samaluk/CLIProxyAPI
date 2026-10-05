@@ -5,6 +5,7 @@ The server owns discovery. Clients retain prompts, routing IDs, user options and
 missing saved models. No upstream OAuth credentials are needed on a client.
 """
 import argparse
+import ast
 import copy
 import datetime
 import fcntl
@@ -15,6 +16,7 @@ from pathlib import Path
 import re
 import sys
 import tomllib
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -22,6 +24,65 @@ import urllib.request
 import refresh_scoped_catalogs as catalogs
 from model_labels import model_label
 
+
+FAILURE_CONTEXT = {}
+
+
+def phase(name, **context):
+    FAILURE_CONTEXT.update(stage=name, stageStartedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(), **context)
+
+
+def failure_receipt(error):
+    """Record stack locations and reviewed application messages, never locals.
+
+    Unknown exception text, HTTP bodies and chained exception text are omitted.
+    Literal ValueError messages in the installed helpers are safe static prose.
+    """
+    root = FAILURE_CONTEXT.get('root')
+    if root is None:
+        return None
+    folder = root / 'sync-state/diagnostics'
+    if folder.is_symlink() or any(p.is_symlink() for p in folder.parents):
+        return None
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    safe_messages = set()
+    for name in ('remote_sync.py', 'refresh_scoped_catalogs.py', 'opencode_services.py'):
+        tree = ast.parse((Path(__file__).parent / name).read_text())
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and
+                    node.func.id == 'ValueError' and node.args and
+                    isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
+                safe_messages.add(node.args[0].value)
+    message = str(error)
+    safe = type(error) is ValueError and (message in safe_messages or
+                re.fullmatch(r'Gateway catalog unavailable: HTTP [0-9]{3}', message))
+    stamp = datetime.datetime.now(datetime.timezone.utc)
+    frames = [{'file': frame.f_code.co_filename, 'line': line, 'function': frame.f_code.co_name}
+              for frame, line in traceback.walk_tb(error.__traceback__)]
+    receipt = {'failedAt': stamp.isoformat(), 'stage': FAILURE_CONTEXT.get('stage'),
+               'stageStartedAt': FAILURE_CONTEXT.get('stageStartedAt'),
+               'scope': FAILURE_CONTEXT.get('scope'), 'exception': type(error).__name__,
+               'message': message if safe else 'Exception text omitted; inspect stack locations',
+               'traceback': frames}
+    path = folder / (stamp.strftime('%Y%m%dT%H%M%S%fZ') + '-failure.json')
+    catalogs.atomic_write(path, catalogs.encoded(receipt), 0o600)
+    return path
+
+
+def run():
+    FAILURE_CONTEXT.clear()
+    try:
+        main()
+        return 0
+    except Exception as error:
+        try:
+            receipt = failure_receipt(error)
+        except Exception:
+            receipt = None  # A diagnostic write must not obscure the original failure.
+        suffix = ' Private failure receipt: ' + str(receipt) if receipt else ''
+        print('Catalog sync failed; inspect private sync-state backups before retrying. ' +
+              type(error).__name__ + suffix, file=sys.stderr)
+        return 1
 
 def origin(value):
     parsed = urllib.parse.urlsplit(value)
@@ -161,6 +222,7 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     root = args.profiles.expanduser().resolve()
+    phase('read-settings', root=root, scope=None)
     settings = catalogs.read(root / 'gateway.json')
     # Scheduled jobs have a minimal environment. Use the path recorded during
     # installation so the installed stock Pi mapper can locate Pi and Bun.
@@ -168,6 +230,7 @@ def main():
         os.environ['PATH'] = settings['runtime_path']
     endpoint = origin(settings['endpoint'])
     state = root / 'sync-state'; state.mkdir(mode=0o700, exist_ok=True)
+    phase('protect-main-codex')
     main_config = Path.home() / '.codex/config.toml'
     forbidden = [main_config]
     if main_config.exists():
@@ -183,12 +246,15 @@ def main():
             return
         changes, receipts, snapshots = {}, [], {}
         for scope in ('personal', 'work'):
+            phase('read-profile', scope=scope)
             key_path = root / scope / 'keys/downstream.key'
             if not key_path.exists():
                 continue
             cache_path = state / (scope + '.json')
             cache = catalogs.read(cache_path) if cache_path.exists() else None
+            phase('fetch-catalog', scope=scope)
             snapshot = fetch(endpoint, key_path.read_text().strip(), scope, cache)
+            phase('prepare-profile')
             current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'), settings.get('pi_native_catalog') is True)
             changes.update(current); snapshots[cache_path] = snapshot
             receipts.append({'scope': scope, 'revision': snapshot['revision'], 'modelCount': len(snapshot['models']),
@@ -197,31 +263,32 @@ def main():
             raise ValueError('No scoped profile keys installed')
         extra_paths = {root / scope / relative for scope in ('personal', 'work')
                        for relative in ('codex/config.toml', 'pi/cliproxyapi.json', 'pi/models.json')}
+        phase('validate-targets', scope=None)
         catalogs.validate_targets(changes, root, forbidden, extra_paths)
         backup = None
         if args.apply and changes:
+            phase('apply-catalogs')
             backup = str(catalogs.apply_changes(changes, root, state / 'backups', forbidden, extra_paths))
         if args.apply:
+            phase('publish-caches')
             for path, value in snapshots.items():
                 catalogs.atomic_write(path, catalogs.encoded(value), 0o600)
         services = None
         if args.apply and settings.get('t3_opencode_services') is True:
+            phase('reconcile-opencode-services')
             import opencode_services
             services = opencode_services.reconcile(root, changes)
+        phase('verify-main-codex')
         if any(p.read_bytes() != raw for p, raw in protected.items()):
             raise ValueError('Main Codex changed externally during reconciliation')
         result = {'checkedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'mode': 'apply' if args.apply else 'preview',
                   'changedFiles': len(changes), 'profiles': receipts, 'backup': backup, 'mainCodexUntouched': True}
         if services is not None:
             result['opencode'] = services
+        phase('publish-status')
         catalogs.atomic_write(state / 'status.json', catalogs.encoded(result), 0o600)
         print(json.dumps(result, indent=2))
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as error:
-        # Never serialize a failed HTTP request, credential, or provider body.
-        print('Catalog sync failed; inspect private sync-state backups before retrying. ' + type(error).__name__, file=sys.stderr)
-        sys.exit(1)
+    sys.exit(run())

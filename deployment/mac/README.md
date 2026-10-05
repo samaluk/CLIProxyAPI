@@ -40,3 +40,18 @@ T3 discovers Pi models through stock RPC health checks. An explicit provider
 refresh loads the latest file immediately; running sessions read updates on their
 next provider reload/session start. The sync downloads catalog data, not new
 helper code: install helpers from the reviewed branch when their code changes.
+
+### Failed-sync diagnostics
+
+A failed sync keeps the last successful `status.json` receipt and writes a new
+private `sync-state/diagnostics/*-failure.json` with the UTC timestamp, stage,
+scope, exception class and exact stack locations. Reviewed static application
+messages, including a gateway HTTP status, are included. Arbitrary exception
+text, HTTP response bodies and local variables are omitted. These files are
+mode 0600. Diagnostics never replace the original nonzero exit status.
+
+Older generic log lines cannot establish a root cause retroactively. Do not
+infer an OpenCode schema failure from `ValueError` alone. Run the installed
+`cpa-catalog-sync` without `--apply` to preview; use the newest private failure
+receipt if a preview or scheduled apply fails. Keep the localhost relay for
+saved clients: catalog sync itself uses the NAS origin directly.
