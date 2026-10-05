@@ -183,7 +183,51 @@ def legacy_prompt_targets(root, binary, major_version):
     return targets
 
 
-def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_opencode_services=False):
+def t3_pi_targets(root, endpoint, binaries, settings_path=None):
+    """Plan two stock Pi instances and retire only the combined CPA discovery.
+
+    Configs and T3 settings join the installer's guarded, backed-up transaction.
+    Existing scoped instance overrides and unrelated packages are preserved.
+    """
+    settings_path = settings_path or Path.home() / '.t3/userdata/settings.json'
+    before = settings_path.read_bytes()
+    settings = json.loads(before)
+    instances = settings.setdefault('providerInstances', {})
+    targets = {}
+    for scope in ('personal', 'work'):
+        profile = root / scope
+        snapshot = remote_sync.fetch(endpoint, (profile / 'keys/downstream.key').read_text().strip(), scope)
+        live = {m['slug']: catalogs.safe_model(m) for m in snapshot['models']}
+        mapped, _, _ = catalogs.stock_pi_map(profile, live, binaries['pi'])
+        cache = catalogs.pi_update(catalogs.read(profile / 'pi/cliproxyapi-models.json'), mapped, live)
+        path = profile / 'pi/models.json'
+        raw = path.read_bytes()
+        native = catalogs.pi_native_update(json.loads(raw), cache, scope, endpoint)
+        targets[path] = (catalogs.encoded(native), 0o600, raw)
+        path = profile / 'pi/settings.json'
+        raw = path.read_bytes()
+        config = json.loads(raw)
+        config['packages'] = [item for item in config.get('packages', []) if not (
+            isinstance(item, str) and re.fullmatch(r'npm:@router-for-me/pi-cliproxyapi-provider(?:@[0-9.]+)?', item))]
+        targets[path] = (catalogs.encoded(config), 0o600, raw)
+        wrapper = str(profile / 'bin/pi')
+        identifier = 'pi_' + scope
+        if identifier in instances:
+            instance = instances[identifier]
+            if instance.get('driver') != 'pi' or instance.get('config', {}).get('binaryPath') != wrapper:
+                raise ValueError('Existing T3 Pi instance is not managed by this profile')
+        else:
+            instances[identifier] = {'driver': 'pi', 'displayName': 'Pi ' + ('P' if scope == 'personal' else 'W'),
+                                     'enabled': True, 'config': {'binaryPath': wrapper}}
+    legacy = instances.get('pi')
+    if legacy and legacy.get('driver') == 'pi' and legacy.get('config', {}).get('binaryPath', 'pi') in (
+            'pi', '', str(Path.home() / '.local/bin/pi')):
+        legacy['enabled'] = False
+        legacy['displayName'] = 'Pi · Legacy home (unmigrated)'
+    targets[settings_path] = (catalogs.encoded(settings), 0o600, before)
+    return targets
+
+def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_opencode_services=False, t3_pi_profiles=False):
     if sys.version_info < (3, 11) or sys.platform not in ('darwin', 'linux'):
         raise ValueError('Python 3.11+ on macOS or Linux/WSL required')
     endpoint = remote_sync.origin(endpoint)
@@ -195,6 +239,7 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
     config = catalogs.read(settings) if settings.exists() else {}
     pi_selector = pi_selector or config.get('pi_selector', False)
     t3_opencode_services = t3_opencode_services or config.get('t3_opencode_services', False)
+    t3_pi_profiles = t3_pi_profiles or config.get('t3_pi_profiles', False)
     binaries = dict(config.get('binaries', {}), **binaries)
     if not binaries:
         raise ValueError('Supply at least one --binary on first installation')
@@ -221,9 +266,14 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
         if scopes != ['personal', 'work']:
             raise ValueError('The T3 service connection requires both scoped profiles')
         config['t3_opencode_services'] = True
+    if t3_pi_profiles:
+        if 'pi' not in binaries or scopes != ['personal', 'work']:
+            raise ValueError('T3 Pi profiles require both scoped accounts and a native Pi binary')
+        config.update(t3_pi_profiles=True, pi_native_catalog=True)
     retired = legacy_prompt_targets(root, binaries['opencode'],
                                    catalogs.opencode_major_version(binaries['opencode'])) if 'opencode' in binaries else {}
-    targets = dict(retired)
+    targets = t3_pi_targets(root, endpoint, binaries) if t3_pi_profiles else {}
+    targets.update(retired)
     targets.update({runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES})
     targets[settings] = (catalogs.encoded(config), 0o600)
     targets[root / 'launch-harness.py'] = ((source / 'launch_harness.py').read_bytes(), 0o600)
@@ -257,5 +307,6 @@ if __name__ == '__main__':
     parser.add_argument('--no-schedule', action='store_true')
     parser.add_argument('--pi-selector', action='store_true', help='Install an explicit personal/work chooser as ~/.local/bin/pi')
     parser.add_argument('--t3-opencode-services', action='store_true', help='Connect existing T3 Personal/Work instances to stock OpenCode 2 services')
+    parser.add_argument('--t3-pi-profiles', action='store_true', help='Connect Personal/Work T3 instances to scoped native Pi catalogs')
     args = parser.parse_args()
-    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector, args.t3_opencode_services), indent=2))
+    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector, args.t3_opencode_services, args.t3_pi_profiles), indent=2))

@@ -87,7 +87,7 @@ def codex_endpoint(raw, endpoint):
     return result
 
 
-def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=None):
+def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=None, pi_native=False):
     profile = root / scope
     live = {m['slug']: catalogs.safe_model(m) for m in snapshot['models']}
     # Explicit null clears an unsupported generic reasoning default.
@@ -141,6 +141,10 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
             if model['id'].startswith(scope + '/'):
                 model['name'] = model_label(model['id'])
         prepare(path, catalogs.encoded(updated))
+        if pi_native:
+            native_path = profile / 'pi/models.json'
+            native = catalogs.pi_native_update(catalogs.read(native_path), updated, scope, endpoint)
+            prepare(native_path, catalogs.encoded(native))
     path = profile / 'pi/cliproxyapi.json'
     if path.exists():
         updated = catalogs.read(path)
@@ -185,14 +189,14 @@ def main():
             cache_path = state / (scope + '.json')
             cache = catalogs.read(cache_path) if cache_path.exists() else None
             snapshot = fetch(endpoint, key_path.read_text().strip(), scope, cache)
-            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'))
+            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'), settings.get('pi_native_catalog') is True)
             changes.update(current); snapshots[cache_path] = snapshot
             receipts.append({'scope': scope, 'revision': snapshot['revision'], 'modelCount': len(snapshot['models']),
                              'deferred': snapshot.get('deferred', []), 'missingTrustedTemplates': pending})
         if not receipts:
             raise ValueError('No scoped profile keys installed')
         extra_paths = {root / scope / relative for scope in ('personal', 'work')
-                       for relative in ('codex/config.toml', 'pi/cliproxyapi.json')}
+                       for relative in ('codex/config.toml', 'pi/cliproxyapi.json', 'pi/models.json')}
         catalogs.validate_targets(changes, root, forbidden, extra_paths)
         backup = None
         if args.apply and changes:

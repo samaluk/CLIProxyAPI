@@ -42,6 +42,44 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(env['CLIPROXYAPI_API_KEY'], 'fixture-downstream-key')
             self.assertEqual(env['PI_CODING_AGENT_DIR'], str(root/'personal/pi'))
             self.assertNotIn('CLIPROXYAPI_PROVIDER_ID', env)
+            self.assertNotIn('ANTHROPIC_AUTH_TOKEN', env)
+            self.assertNotIn('ANTHROPIC_BASE_URL', env)
+
+    def test_t3_pi_install_preserves_customizations_and_guards_concurrent_edits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); root = self.fixture(home)
+            settings_path = home / '.t3/userdata/settings.json'
+            settings_path.parent.mkdir(parents=True)
+            settings_path.write_text(json.dumps({'providerInstances': {'pi': {'driver':'pi','enabled':True},
+                'pi_work': {'driver':'pi','displayName':'my work','enabled':False,
+                            'config':{'binaryPath':str(root/'work/bin/pi'),'launchArgs':'--no-skills'}}},
+                'other': 'unchanged'}))
+            for scope in ('personal', 'work'):
+                profile = root/scope
+                (profile/'keys').mkdir(parents=True, exist_ok=True)
+                (profile/'keys/downstream.key').write_text('fixture-key')
+                (profile/'pi').mkdir()
+                (profile/'pi/models.json').write_text('{"providers":{"cliproxyapi":{}}}')
+                (profile/'pi/cliproxyapi-models.json').write_text(json.dumps({'models':[{'id':scope+'/saved'}]}))
+                (profile/'pi/settings.json').write_text(json.dumps({'defaultModel':scope+'/saved',
+                    'packages':['npm:@router-for-me/pi-cliproxyapi-provider@1.4.20','my-other-extension']}))
+            def snapshot(endpoint, key, scope): return {'models':[{'slug':scope+'/saved'}]}
+            def mapper(profile, live, binary): return ([{'id':next(iter(live))}], 'fixture', [])
+            with patch.object(Path,'home',return_value=home), patch.object(installer.remote_sync,'fetch',side_effect=snapshot), patch.object(installer.catalogs,'stock_pi_map',side_effect=mapper):
+                targets = installer.t3_pi_targets(root,'https://nas.example',{'pi':sys.executable})
+            updated = json.loads(targets[settings_path][0])
+            self.assertFalse(updated['providerInstances']['pi']['enabled'])
+            self.assertTrue(updated['providerInstances']['pi_personal']['enabled'])
+            self.assertEqual(updated['providerInstances']['pi_work']['displayName'], 'my work')
+            self.assertFalse(updated['providerInstances']['pi_work']['enabled'])
+            self.assertEqual(updated['other'], 'unchanged')
+            config = json.loads(targets[root/'work/pi/settings.json'][0])
+            self.assertEqual(config['packages'], ['my-other-extension'])
+            self.assertEqual(config['defaultModel'], 'work/saved')
+            settings_path.write_text('{"concurrent":"edit"}')
+            with self.assertRaisesRegex(ValueError, 'ownership check'):
+                installer.write_transaction(targets, root/'conflicting-install')
+            self.assertEqual(json.loads(settings_path.read_text()), {'concurrent':'edit'})
 
     def fixture(self, home):
         root = home / 'profiles'
