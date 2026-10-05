@@ -285,6 +285,11 @@ def pi_native_update(document, cache, scope, endpoint):
         model = {key: copy.deepcopy(old[key]) for key in
                  ('id', 'name', 'cost', *PI_FIELDS) if key in old}
         model['api'] = 'openai-responses'
+        override = provider.get('modelOverrides', {}).get(old['id'])
+        if isinstance(override, dict) and override.get('name') == model_label(old['id']):
+            # Retire generated name overrides when authenticated backend identity
+            # changes the label. Deliberate custom names and other overrides stay.
+            override['name'] = old.get('name', override['name'])
         models.append(model)
     if not models:
         raise ValueError('Empty native Pi scope; retain saved configuration')

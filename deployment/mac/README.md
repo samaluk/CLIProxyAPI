@@ -18,6 +18,20 @@ Run helper regressions with `python3 -m unittest discover -s deployment/mac/scri
 
 ## NAS catalog clients
 
+For existing scoped T3 Claude instances, the administrator-owned `gateway.json`
+setting `t3_claude_profiles: true` opts into automatic custom-model menu updates.
+The sync checks the driver and scoped wrapper path, preserves user capability
+overrides and unrelated instances, and backs up settings in the same guarded
+transaction as the catalogs. Claude reads fresh scoped limits even when a model
+has no trusted Codex prompt template. No custom effort controls are invented.
+
+LiteLLM labels use authenticated canonical model identity where available. A
+deployment naming a different backend remains a distinct route and gets a
+`via` suffix; for example, a saved Luna 5.6 deployment now routed to Luna 6 is
+labelled `W/LL · 6 Luna · via 5.6 Luna`. Generated Pi name overrides follow that
+label; deliberate custom names remain unchanged. Saved prompts are never
+automatically reassigned by this presentation change.
+
 The current client entry point is `scripts/remote_sync.py`, installed with
 `scripts/install_remote_sync.py`. It fetches the explicitly configured NAS
 HTTPS `/catalog/v1` with each scope's downstream key every five minutes.

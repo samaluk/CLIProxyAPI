@@ -179,7 +179,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         updated, pending = catalogs.codex_update(before, live, scope, templates)
         for model in updated['models']:
             if model['slug'].startswith(scope + '/'):
-                model['display_name'] = model_label(model['slug'])
+                model['display_name'] = model_label(model['slug'], live.get(model['slug'], {}).get('canonical_model_id'))
         prepare(path, catalogs.encoded(updated))
     path = profile / 'codex/config.toml'
     if path.exists():
@@ -192,7 +192,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         provider = updated['provider']['cpa-' + scope]
         provider.setdefault('options', {})['baseURL'] = endpoint + '/v1'
         for route, model in provider['models'].items():
-            model['name'] = model_label(route)
+            model['name'] = model_label(route, live.get(route, {}).get('canonical_model_id'))
         prepare(path, catalogs.encoded(updated))
     path = profile / 'pi/cliproxyapi-models.json'
     if path.exists():
@@ -200,7 +200,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         updated = catalogs.pi_update(catalogs.read(path), mapper, live)
         for model in updated['models']:
             if model['id'].startswith(scope + '/'):
-                model['name'] = model_label(model['id'])
+                model['name'] = model_label(model['id'], live.get(model['id'], {}).get('canonical_model_id'))
         prepare(path, catalogs.encoded(updated))
         if pi_native:
             native_path = profile / 'pi/models.json'
@@ -212,6 +212,33 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         updated['baseUrl'] = endpoint
         prepare(path, catalogs.encoded(updated))
     return changes, pending
+
+
+def t3_claude_targets(root, snapshots, settings_path=None):
+    """Refresh only existing profile-owned Claude instance menus, preserving overrides."""
+    path = settings_path or Path.home() / '.t3/userdata/settings.json'
+    before = path.read_bytes()
+    document = json.loads(before)
+    for snapshot in snapshots.values():
+        scope = snapshot['scope']
+        instance = document.get('providerInstances', {}).get('claude_' + scope)
+        if not instance or instance.get('driver') != 'claudeAgent' or instance.get('config', {}).get('binaryPath') != str(root / scope / 'bin/claude'):
+            raise ValueError('T3 Claude instance is not owned by the scoped profile')
+        models = instance['config'].setdefault('customModels', [])
+        positions = {(m if isinstance(m, str) else m['slug']): i for i, m in enumerate(models)}
+        for fresh in snapshot['models']:
+            route = fresh['slug']
+            if not route.startswith(scope + '/'):
+                raise ValueError('Foreign route in T3 Claude catalog')
+            index = positions.get(route)
+            model = copy.deepcopy(models[index]) if index is not None and isinstance(models[index], dict) else {'slug': route, 'capabilities': {'optionDescriptors': []}}
+            model['name'] = model_label(route, fresh.get('canonical_model_id'))
+            if index is None:
+                models.append(model)
+            else:
+                models[index] = model
+    after = catalogs.encoded(document)
+    return {path: {'before': before, 'after': after}} if after != before else {}
 
 
 def main():
@@ -263,6 +290,11 @@ def main():
             raise ValueError('No scoped profile keys installed')
         extra_paths = {root / scope / relative for scope in ('personal', 'work')
                        for relative in ('codex/config.toml', 'pi/cliproxyapi.json', 'pi/models.json')}
+        if settings.get('t3_claude_profiles') is True:
+            phase('prepare-t3-claude', scope=None)
+            current = t3_claude_targets(root, snapshots)
+            changes.update(current)
+            extra_paths.add(Path.home() / '.t3/userdata/settings.json')
         phase('validate-targets', scope=None)
         catalogs.validate_targets(changes, root, forbidden, extra_paths)
         backup = None
