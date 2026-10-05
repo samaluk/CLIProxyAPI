@@ -64,3 +64,15 @@ class RemoteSyncTests(unittest.TestCase):
             changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
             updated=json.loads(changes[p]['after'])['models'][0]
             self.assertTrue(all(updated[x] is False for x in fields))
+
+    def test_installed_opencode2_selects_enabled_only_export(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);path=root/'personal/config/opencode/opencode.json';path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'provider':{'cpa-personal':{'models':{}}}}))
+            route='personal/commandcode/deepseek-v4.1-flash'
+            snapshot={'models':[{'slug':route,'supported_reasoning_levels':[{'effort':'high'}]}]}
+            with patch.object(remote_sync.catalogs,'opencode_major_version',return_value=2) as version:
+                changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False,{'opencode':'/stock/opencode'})
+            version.assert_called_once_with('/stock/opencode')
+            variants=json.loads(changes[path]['after'])['provider']['cpa-personal']['models'][route]['variants']
+            self.assertEqual(variants,{'high':{'reasoningEffort':'high'}})
