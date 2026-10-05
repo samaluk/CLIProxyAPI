@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -77,6 +78,47 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(launcher.read_text(),'old launcher')
             self.assertTrue(link.is_symlink())
             self.assertFalse((root/'sync-runtime/remote_sync.py').exists())
+
+    def test_v2_retirement_only_matches_our_unchanged_v1_loader(self):
+        legacy = b"import { preservePromptIdentity } from './identity.mjs';\nexport default async function PromptIdentity() {\n  return {\n    'experimental.chat.system.transform': async ({ model }, output) => preservePromptIdentity(model, output.system),\n  };\n}\n"
+        with tempfile.TemporaryDirectory() as folder:
+            home=Path(folder).resolve();root=self.fixture(home)
+            module=home/'opencode-prompt-identity/plugin.mjs';module.parent.mkdir();module.write_bytes(legacy)
+            identity=module.parent/'identity.mjs';identity.write_bytes(b'known helper')
+            paths=[home/'.config/opencode/plugins/cpa-prompt-identity.js',*[root/scope/'config/opencode/plugins/cpa-prompt-identity.js' for scope in ('personal','work')]]
+            for path in paths:
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_text(f'export {{ default }} from "{module.as_uri()}";\n')
+            binary=home/'opencode';binary.write_text('fixture');binary.chmod(0o700)
+            with patch.object(Path,'home',return_value=home),patch.object(installer.shutil,'which',return_value=str(binary)),patch.dict(installer.LEGACY_PROMPT_FILES,{'plugin.mjs':hashlib.sha256(legacy).hexdigest(),'identity.mjs':hashlib.sha256(b'known helper').hexdigest()},clear=True):
+                self.assertEqual(set(installer.legacy_prompt_targets(root,str(binary),2)),set(paths))
+                self.assertEqual(installer.legacy_prompt_targets(root,str(binary),1),{})
+                targets=installer.legacy_prompt_targets(root,str(binary),2)
+                paths[0].write_text('// concurrent user edit\n'+paths[0].read_text())
+                with self.assertRaisesRegex(ValueError,'ownership check'):
+                    installer.write_transaction(targets,home/'race-backup')
+                self.assertTrue(all(path.exists() for path in paths))
+                paths[0].write_bytes(targets[paths[0]][2])
+
+                paths[0].write_text('// user customization\n'+paths[0].read_text())
+                self.assertEqual(set(installer.legacy_prompt_targets(root,str(binary),2)),set(paths[1:]))
+                identity.write_bytes(b'user changed helper')
+                self.assertEqual(installer.legacy_prompt_targets(root,str(binary),2),{})
+                identity.write_bytes(b'known helper')
+                paths[0].write_bytes(b'\xff')
+                self.assertEqual(set(installer.legacy_prompt_targets(root,str(binary),2)),set(paths[1:]))
+                module.write_bytes(legacy+b'// changed\n')
+                self.assertEqual(installer.legacy_prompt_targets(root,str(binary),2),{})
+
+    def test_retired_plugin_is_archived_and_restored_on_activation_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve();p=root/'plugin.js';p.write_bytes(b'owned loader');p.chmod(0o640)
+            installer.write_transaction({p:(None,0o600)},root/'backup')
+            self.assertFalse(p.exists());self.assertEqual((root/'backup/0').read_bytes(),b'owned loader')
+            p.write_bytes(b'owned loader');p.chmod(0o640)
+            def fail():raise RuntimeError('fixture activation failure')
+            with self.assertRaises(RuntimeError):installer.write_transaction({p:(None,0o600)},root/'backup2',fail)
+            self.assertEqual(p.read_bytes(),b'owned loader');self.assertEqual(p.stat().st_mode&0o777,0o640)
 
     def test_scheduler_failure_restores_files_and_invokes_recovery(self):
         with tempfile.TemporaryDirectory() as folder:

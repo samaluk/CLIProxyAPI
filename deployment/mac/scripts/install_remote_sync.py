@@ -6,14 +6,17 @@ Does not change the main Codex home or download/replace harness executables.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import shlex
 import shutil
 import subprocess
 import sys
+import urllib.parse
 
 import remote_sync
 import refresh_scoped_catalogs as catalogs
@@ -36,9 +39,13 @@ def python_runtime():
 
 
 def write_transaction(targets, backup, activate=None, recover=None):
-    """Preflight all files, retain a restore manifest, roll back failed installs."""
+    """Archive preflight contents and roll back failures. None retires a file.
+
+    A target may include expected prior bytes to guard an earlier ownership check.
+    """
     saved = {}
-    for path, (raw, mode) in targets.items():
+    for path, target in targets.items():
+        raw, mode = target[:2]
         if any(p.is_symlink() for p in path.parents):
             raise ValueError('Refusing symlinked installation directory')
         if path.exists() and not path.is_file():
@@ -46,6 +53,8 @@ def write_transaction(targets, backup, activate=None, recover=None):
         saved[path] = {'link': str(path.readlink()) if path.is_symlink() else None,
                        'raw': path.read_bytes() if path.exists() else None,
                        'mode': path.stat().st_mode & 0o777 if path.exists() else None}
+        if len(target) == 3 and saved[path]['raw'] != target[2]:
+            raise ValueError('Installation target changed after ownership check')
     backup.mkdir(parents=True, mode=0o700)
     manifest = []
     for index, (path, old) in enumerate(saved.items()):
@@ -56,18 +65,22 @@ def write_transaction(targets, backup, activate=None, recover=None):
     (backup / 'manifest.json').write_bytes(catalogs.encoded(manifest))
     written = []
     try:
-        for path, (raw, mode) in targets.items():
+        for path, target in targets.items():
+            raw, mode = target[:2]
             old = saved[path]
             if (path.read_bytes() if path.exists() else None) != old['raw']:
                 raise ValueError('Installation target changed after preflight')
             path.parent.mkdir(parents=True, exist_ok=True)
-            catalogs.atomic_write(path, raw, mode)
+            if raw is None:
+                path.unlink(missing_ok=True)
+            else:
+                catalogs.atomic_write(path, raw, mode)
             written.append(path)
         if activate:
             activate()
     except BaseException:
         for path in reversed(written):
-            if path.read_bytes() != targets[path][0]:
+            if (path.read_bytes() if path.exists() else None) != targets[path][0]:
                 continue  # Preserve a concurrent edit; the manifest retains recovery data.
             old = saved[path]
             if old['link'] is not None:
@@ -123,6 +136,53 @@ def scheduler(command, state, targets):
     return activate, recover
 
 
+# Ownership fingerprints of the complete old workaround. Edited files are retained.
+LEGACY_PROMPT_FILES = {
+    'plugin.mjs': 'd0ed066ba376774845ed9ec25730b6984bf4482d5965bc851f9c1cedb84e3c37',
+    'identity.mjs': 'd488b2b6caa51d98cdf9b0e6cc70d456d3bd075a68429d7f4a2753c19e70eefa',
+    'vendor/codex.txt': 'c30bca40693a47965e25ceac3f02d3709712af7abeab1278bba53a9efcffa928',
+    'vendor/gpt.txt': '83a66a46a5febbc21454161d5f053638b22d25d95e09d77b8f6da33debc848ad',
+}
+
+
+def legacy_prompt_targets(root, binary, major_version):
+    """Archive only known unchanged loaders when their harness runs OpenCode 2.
+
+    V2's stock OpenAI prompt selection no longer mistakes codex-oauth routes for
+    Codex models. Porting the obsolete prefix substitution would add no benefit.
+    """
+    if major_version != 2:
+        return {}
+    paths = [root / scope / 'config/opencode/plugins/cpa-prompt-identity.js'
+             for scope in ('personal', 'work')]
+    global_binary = shutil.which('opencode')
+    if global_binary and Path(global_binary).resolve() == Path(binary).resolve():
+        paths.append(Path.home() / '.config/opencode/plugins/cpa-prompt-identity.js')
+    targets = {}
+    for path in paths:
+        if not path.is_file() or path.is_symlink():
+            continue
+        loader = path.read_bytes()
+        try:
+            text = loader.decode('utf-8')
+        except UnicodeDecodeError:
+            continue
+        match = re.fullmatch(r'export \{ default \} from "(file://[^"\n]+)";\n?', text)
+        if not match:
+            continue
+        parsed = urllib.parse.urlsplit(match[1])
+        if parsed.netloc or parsed.query or parsed.fragment:
+            continue
+        module = Path(urllib.parse.unquote(parsed.path))
+        if module.name != 'plugin.mjs' or module.parent.name != 'opencode-prompt-identity':
+            continue
+        if all((module.parent / name).is_file() and
+               hashlib.sha256((module.parent / name).read_bytes()).hexdigest() == digest
+               for name, digest in LEGACY_PROMPT_FILES.items()):
+            targets[path] = (None, 0o600, loader)
+    return targets
+
+
 def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_opencode_services=False):
     if sys.version_info < (3, 11) or sys.platform not in ('darwin', 'linux'):
         raise ValueError('Python 3.11+ on macOS or Linux/WSL required')
@@ -161,7 +221,10 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
         if scopes != ['personal', 'work']:
             raise ValueError('The T3 service connection requires both scoped profiles')
         config['t3_opencode_services'] = True
-    targets = {runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES}
+    retired = legacy_prompt_targets(root, binaries['opencode'],
+                                   catalogs.opencode_major_version(binaries['opencode'])) if 'opencode' in binaries else {}
+    targets = dict(retired)
+    targets.update({runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES})
     targets[settings] = (catalogs.encoded(config), 0o600)
     targets[root / 'launch-harness.py'] = ((source / 'launch_harness.py').read_bytes(), 0o600)
     python = python_runtime()
@@ -182,7 +245,8 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
                 targets[path] = (script.encode(), 0o700)
     activate, recover = scheduler(command, state, targets) if schedule else (None, None)
     write_transaction(targets, backup, activate, recover)
-    return {'profiles': str(root), 'endpoint': endpoint, 'scheduled': schedule, 'backup': str(backup)}
+    return {'profiles': str(root), 'endpoint': endpoint, 'scheduled': schedule, 'backup': str(backup),
+            'retiredLegacyPromptLoaders': len(retired)}
 
 
 if __name__ == '__main__':
