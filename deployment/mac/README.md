@@ -15,3 +15,28 @@ The refresh helper authenticates read-only model discovery with the existing nat
 This adapter currently needs the Mac GUI credential layout and a matching native Codex login. A NAS deployment must supply equivalent account-bound discovery at the gateway; copying this Mac helper alone does not implement remote discovery. See [CAPABILITIES.md](../CAPABILITIES.md).
 
 Run helper regressions with `python3 -m unittest discover -s deployment/mac/scripts -p 'test_*.py'`. Some imported historical tests expect their original lab fixtures; record any missing fixture separately from a product failure.
+
+## NAS catalog clients
+
+The current client entry point is `scripts/remote_sync.py`, installed with
+`scripts/install_remote_sync.py`. It fetches the explicitly configured NAS
+HTTPS `/catalog/v1` with each scope's downstream key every five minutes.
+The older localhost-only refresh helper above is retained for historical checks.
+Main Codex is protected; only the separate Personal and Work homes are updated.
+
+For stock Pi 1.x in T3, install with `--t3-pi-profiles` after the private homes and
+keys exist. This opt-in creates `pi_personal` and `pi_work` using scoped wrappers,
+disables the default interactive selector instance, and remembers the option on
+reinstall. Existing scoped instance settings and other extensions are preserved.
+The combined-discovery CPA extension is removed from the scoped package lists;
+its installed mapper assets and private backups remain available for rollback.
+Pi's native `models.json` uses `openai-responses`, the NAS `/v1` origin, and
+`${CPA_API_KEY}` from its scoped launcher. The sync updates those native model
+capabilities and labels, retaining missing in-scope saved IDs. Other-scope and
+ambiguous unscoped discovery entries are never registered. This does not alter
+Pi's global home, NAS credentials, or the native T3/Pi executables.
+
+T3 discovers Pi models through stock RPC health checks. An explicit provider
+refresh loads the latest file immediately; running sessions read updates on their
+next provider reload/session start. The sync downloads catalog data, not new
+helper code: install helpers from the reviewed branch when their code changes.

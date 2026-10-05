@@ -267,6 +267,31 @@ def pi_update(document, mapped, live):
     # Missing non-retired routes stay cached, matching stock provider retention.
     return result
 
+def pi_native_update(document, cache, scope, endpoint):
+    """Use scoped native Responses definitions instead of combined discovery.
+
+    Retain saved in-scope IDs, overrides and capabilities. Never register the
+    other account or ambiguous unscoped aliases in an account-specific home.
+    """
+    result = copy.deepcopy(document)
+    providers = result.setdefault('providers', {})
+    if set(providers) - {'cliproxyapi'}:
+        raise ValueError('Native Pi profile must contain only the managed gateway provider')
+    provider = providers.setdefault('cliproxyapi', {})
+    models = []
+    for old in cache['models']:
+        if not old['id'].startswith(scope + '/') or old['id'] in RETIRED:
+            continue
+        model = {key: copy.deepcopy(old[key]) for key in
+                 ('id', 'name', 'cost', *PI_FIELDS) if key in old}
+        model['api'] = 'openai-responses'
+        models.append(model)
+    if not models:
+        raise ValueError('Empty native Pi scope; retain saved configuration')
+    provider.update(name='CPA ' + scope.title(), api='openai-responses',
+                    apiKey='${CPA_API_KEY}', baseUrl=endpoint + '/v1', models=models)
+    return result
+
 def projection(document, kind, scope):
     if kind == 'codex': return {m['slug']: {k: m[k] for k in CODEX_FIELDS if k in m} for m in document['models']}
     if kind == 'pi': return {m['id']: {k: m[k] for k in PI_FIELDS if k in m} for m in document['models']}

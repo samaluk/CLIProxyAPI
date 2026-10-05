@@ -7,6 +7,22 @@ from unittest.mock import patch
 import remote_sync
 
 
+class NativePiTests(unittest.TestCase):
+    def test_catalog_only_registers_scope_and_retains_saved_ids_and_overrides(self):
+        document = {'providers': {'cliproxyapi': {'modelOverrides': {'personal/saved': {'name': 'mine'}}}}}
+        models = [{'id': 'personal/saved', 'name': 'saved', 'reasoning': True, 'thinkingLevelMap': {'high':'high'}, 'contextWindow': 4000},
+                  {'id': 'work/litellm/x'}, {'id': 'commandcode/ambiguous'}]
+        result = remote_sync.catalogs.pi_native_update(document, {'models':models}, 'personal', 'https://nas.example')
+        provider = result['providers']['cliproxyapi']
+        self.assertEqual([m['id'] for m in provider['models']], ['personal/saved'])
+        self.assertEqual(provider['models'][0]['thinkingLevelMap'], {'high':'high'})
+        self.assertEqual(provider['modelOverrides'], document['providers']['cliproxyapi']['modelOverrides'])
+        self.assertEqual(provider['apiKey'], '${CPA_API_KEY}')
+        self.assertEqual(provider['api'], 'openai-responses')
+        with self.assertRaises(ValueError):
+            remote_sync.catalogs.pi_native_update(document, {'models':[]}, 'work', 'https://nas.example')
+
+
 class RemoteSyncTests(unittest.TestCase):
     def test_origins_reject_plaintext_remote_and_credential_redirect_inputs(self):
         self.assertEqual(remote_sync.origin('https://nas.example/'), 'https://nas.example')

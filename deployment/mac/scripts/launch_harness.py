@@ -61,17 +61,19 @@ def main():
         'XDG_DATA_HOME': str(profile / 'data'),
         'XDG_STATE_HOME': str(profile / 'state'),
         'XDG_CACHE_HOME': str(profile / 'cache'),
-        'ANTHROPIC_BASE_URL': endpoint,
-        'ANTHROPIC_AUTH_TOKEN': key,
-        'ANTHROPIC_API_KEY': '',
-        'ANTHROPIC_MODEL': claude_model,
-        'ANTHROPIC_DEFAULT_SONNET_MODEL': claude_model,
-        'ANTHROPIC_DEFAULT_OPUS_MODEL': claude_model,
-        'ANTHROPIC_DEFAULT_HAIKU_MODEL': claude_model if personal else 'work/claude-oauth/claude-haiku-4-5-20251001',
-        'CLAUDE_CODE_SUBAGENT_MODEL': claude_model,
         'PATH': str(profile / 'bin') + os.pathsep + env.get('PATH', '/opt/homebrew/bin:/usr/bin:/bin'),
     })
     if harness == 'claude':
+        env.update({
+            'ANTHROPIC_BASE_URL': endpoint,
+            'ANTHROPIC_AUTH_TOKEN': key,
+            'ANTHROPIC_API_KEY': '',
+            'ANTHROPIC_MODEL': claude_model,
+            'ANTHROPIC_DEFAULT_SONNET_MODEL': claude_model,
+            'ANTHROPIC_DEFAULT_OPUS_MODEL': claude_model,
+            'ANTHROPIC_DEFAULT_HAIKU_MODEL': claude_model if personal else 'work/claude-oauth/claude-haiku-4-5-20251001',
+            'CLAUDE_CODE_SUBAGENT_MODEL': claude_model,
+        })
         model = claude_model
         args = sys.argv[3:]
         for i, arg in enumerate(args):
