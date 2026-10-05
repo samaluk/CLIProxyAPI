@@ -135,3 +135,15 @@ Install with `--pi-selector` to add `~/.local/bin/pi`. Keep the native Pi execut
 Set each profile's stock `enabledModels` to its preferred exact model followed by `cliproxyapi/personal/**` or `cliproxyapi/work/**`. Pi opens its model picker in scoped mode and limits normal cycling to that set. Its explicit all-models view can still display names from legacy combined discovery; the gateway enforces authorization with the selected key. This is ordinary profile separation, not a same-user filesystem sandbox.
 
 On the migrated Mac, Personal keeps its existing OpenCode Go GLM 5.3 Flash default. Work uses Work LiteLLM GPT-5.6 Luna while Work Claude requires reauthentication. Changing a picker default may also require moving that exact ID to the front of `enabledModels`, because Pi prioritizes the first scoped model on a new session.
+
+## T3 model discovery with stock OpenCode 2
+
+T3 can cache OpenCode 2's initial built-in catalog before configured providers finish loading. This is tracked by [T3 issue #15155](https://github.com/pingdotgg/t3code/issues/15155). A completed CLI or API catalog does not prove that T3's picker loaded it.
+
+On the Mac, the opt-in `--t3-opencode-services` installer option connects the existing scoped T3 instances to stock OpenCode background services. Personal uses loopback port 49374 and Work uses 49375, with separate profile directories and existing service passwords. These local services run the harness; inference still goes through the single NAS gateway. Neither T3 nor OpenCode is patched by this workaround.
+
+The installer remembers the opt-in. `cpa-catalog-sync --apply` and its five-minute scheduled invocation start missing services, wait for the expected scoped catalog, then reconcile only those two T3 connections. When the OpenCode definition file changes, stock `reload` refreshes loaded locations without terminating running sessions. Successful definition hashes are recorded only after both profiles pass, so a failed reload remains pending on the next run. Existing T3 settings are backed up privately before a connection change; other providers and saved custom models are preserved.
+
+Both Personal and Work profiles and matching `opencode_personal` / `opencode_work` T3 instances must already exist. The helper fails instead of modifying an unrelated instance or moving a running service from another port. For a binary update, update stock OpenCode normally, then restart each scoped service during an idle window with `opencode-personal service restart` and `opencode-work service restart`, and run catalog sync. T3's own binary update button updates the CLI, not an already-running external service.
+
+October 4 validation: OpenCode 2.0.22 returned 106 Personal and 29 Work configured models. The stock T3 nightly picker displayed gateway models for both accounts after the connection change. Remove this workaround only after #15155 is fixed and a fresh T3-managed server discovers the complete catalog for both profiles.

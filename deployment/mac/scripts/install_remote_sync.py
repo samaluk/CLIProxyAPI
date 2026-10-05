@@ -18,7 +18,7 @@ import sys
 import remote_sync
 import refresh_scoped_catalogs as catalogs
 
-FILES = ('remote_sync.py', 'refresh_scoped_catalogs.py', 'model_labels.py', 'codex_account_tiers.py')
+FILES = ('remote_sync.py', 'refresh_scoped_catalogs.py', 'model_labels.py', 'codex_account_tiers.py', 'opencode_services.py')
 LABEL = 'me.cpa.catalog-sync'
 
 
@@ -123,7 +123,7 @@ def scheduler(command, state, targets):
     return activate, recover
 
 
-def install(root, endpoint, binaries, schedule=True, pi_selector=False):
+def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_opencode_services=False):
     if sys.version_info < (3, 11) or sys.platform not in ('darwin', 'linux'):
         raise ValueError('Python 3.11+ on macOS or Linux/WSL required')
     endpoint = remote_sync.origin(endpoint)
@@ -134,6 +134,7 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False):
     settings = root / 'gateway.json'
     config = catalogs.read(settings) if settings.exists() else {}
     pi_selector = pi_selector or config.get('pi_selector', False)
+    t3_opencode_services = t3_opencode_services or config.get('t3_opencode_services', False)
     binaries = dict(config.get('binaries', {}), **binaries)
     if not binaries:
         raise ValueError('Supply at least one --binary on first installation')
@@ -154,6 +155,12 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False):
         if Path(binaries['pi']).resolve() == (Path.home() / '.local/bin/pi').resolve():
             raise ValueError('Use the native Pi binary, not the profile selector')
         config['pi_selector'] = True
+    if t3_opencode_services:
+        if 'opencode' not in binaries:
+            raise ValueError('The T3 service connection requires an installed OpenCode binary')
+        if scopes != ['personal', 'work']:
+            raise ValueError('The T3 service connection requires both scoped profiles')
+        config['t3_opencode_services'] = True
     targets = {runtime / name: ((source / name).read_bytes(), 0o600) for name in FILES}
     targets[settings] = (catalogs.encoded(config), 0o600)
     targets[root / 'launch-harness.py'] = ((source / 'launch_harness.py').read_bytes(), 0o600)
@@ -185,5 +192,6 @@ if __name__ == '__main__':
     parser.add_argument('--binary', action='append', default=[], metavar='NAME=ABSOLUTE_PATH')
     parser.add_argument('--no-schedule', action='store_true')
     parser.add_argument('--pi-selector', action='store_true', help='Install an explicit personal/work chooser as ~/.local/bin/pi')
+    parser.add_argument('--t3-opencode-services', action='store_true', help='Connect existing T3 Personal/Work instances to stock OpenCode 2 services')
     args = parser.parse_args()
-    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector), indent=2))
+    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector, args.t3_opencode_services), indent=2))
