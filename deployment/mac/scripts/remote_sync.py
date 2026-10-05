@@ -198,10 +198,16 @@ def main():
         if args.apply:
             for path, value in snapshots.items():
                 catalogs.atomic_write(path, catalogs.encoded(value), 0o600)
+        services = None
+        if args.apply and settings.get('t3_opencode_services') is True:
+            import opencode_services
+            services = opencode_services.reconcile(root, changes)
         if any(p.read_bytes() != raw for p, raw in protected.items()):
             raise ValueError('Main Codex changed externally during reconciliation')
         result = {'checkedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'mode': 'apply' if args.apply else 'preview',
                   'changedFiles': len(changes), 'profiles': receipts, 'backup': backup, 'mainCodexUntouched': True}
+        if services is not None:
+            result['opencode'] = services
         catalogs.atomic_write(state / 'status.json', catalogs.encoded(result), 0o600)
         print(json.dumps(result, indent=2))
 
@@ -211,5 +217,5 @@ if __name__ == '__main__':
         main()
     except Exception as error:
         # Never serialize a failed HTTP request, credential, or provider body.
-        print('Catalog sync failed; saved configuration retained. ' + type(error).__name__, file=sys.stderr)
+        print('Catalog sync failed; inspect private sync-state backups before retrying. ' + type(error).__name__, file=sys.stderr)
         sys.exit(1)
