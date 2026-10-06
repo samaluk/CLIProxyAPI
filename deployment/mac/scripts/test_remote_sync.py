@@ -46,11 +46,23 @@ class NativePiTests(unittest.TestCase):
         document={'providers':{'cliproxyapi':{'modelOverrides':{route:{'name':'W/LL · 5.6 Luna','maxTokens':100}}}}}
         cache={'models':[{'id':route,'name':'W/LL · 6 Luna · via 5.6 Luna'}]}
         result=remote_sync.catalogs.pi_native_update(document,cache,'work','https://nas.example')
-        self.assertEqual(result['providers']['cliproxyapi']['modelOverrides'][route],{'name':cache['models'][0]['name'],'maxTokens':100})
+        self.assertEqual(result['providers']['cliproxyapi']['modelOverrides'][route],{'maxTokens':100})
         self.assertEqual(document['providers']['cliproxyapi']['modelOverrides'][route]['name'],'W/LL · 5.6 Luna')
         document['providers']['cliproxyapi']['modelOverrides'][route]['name']='My custom name'
         result=remote_sync.catalogs.pi_native_update(document,cache,'work','https://nas.example')
         self.assertEqual(result['providers']['cliproxyapi']['modelOverrides'][route]['name'],'My custom name')
+
+    def test_generated_pi_override_does_not_mask_later_backend_changes(self):
+        route='work/litellm/gpt-5.6-luna'
+        previous='W/LL · 6 Luna · via 5.6 Luna'
+        document={'providers':{'cliproxyapi':{'models':[{'id':route,'name':previous}],
+                  'modelOverrides':{route:{'name':previous,'maxTokens':100}}}}}
+        for name in ('W/LL · 6.1 Sol · via 5.6 Luna','W/LL · 6 Luna · via 5.6 Luna'):
+            cache={'models':[{'id':route,'name':name}]}
+            document=remote_sync.catalogs.pi_native_update(document,cache,'work','https://nas.example')
+            provider=document['providers']['cliproxyapi']
+            self.assertEqual(provider['models'][0]['name'],name)
+            self.assertEqual(provider['modelOverrides'][route],{'maxTokens':100})
 
     def test_catalog_only_registers_scope_and_retains_saved_ids_and_overrides(self):
         document = {'providers': {'cliproxyapi': {'modelOverrides': {'personal/saved': {'name': 'mine'}}}}}

@@ -278,6 +278,7 @@ def pi_native_update(document, cache, scope, endpoint):
     if set(providers) - {'cliproxyapi'}:
         raise ValueError('Native Pi profile must contain only the managed gateway provider')
     provider = providers.setdefault('cliproxyapi', {})
+    previous_names = {model['id']: model.get('name') for model in provider.get('models', [])}
     models = []
     for old in cache['models']:
         if not old['id'].startswith(scope + '/') or old['id'] in RETIRED:
@@ -286,10 +287,12 @@ def pi_native_update(document, cache, scope, endpoint):
                  ('id', 'name', 'cost', *PI_FIELDS) if key in old}
         model['api'] = 'openai-responses'
         override = provider.get('modelOverrides', {}).get(old['id'])
-        if isinstance(override, dict) and override.get('name') == model_label(old['id']):
-            # Retire generated name overrides when authenticated backend identity
-            # changes the label. Deliberate custom names and other overrides stay.
-            override['name'] = old.get('name', override['name'])
+        if isinstance(override, dict) and 'name' in override and override['name'] in (
+                model_label(old['id']), previous_names.get(old['id'])):
+            # Inherit the generated model name on every later sync. Recognize
+            # overrides already relabelled by an earlier helper as well.
+            # Deliberate custom names and unrelated override fields stay.
+            override.pop('name')
         models.append(model)
     if not models:
         raise ValueError('Empty native Pi scope; retain saved configuration')
