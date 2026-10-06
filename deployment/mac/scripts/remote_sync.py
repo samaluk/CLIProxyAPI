@@ -161,6 +161,13 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         before = path.read_bytes()
         if before != after:
             changes[path] = {'before': before, 'after': after}
+    path = profile / 'catalogs/handy-models.json'
+    if path.exists():
+        if any(not route.startswith(scope + '/') for route in live):
+            raise ValueError('Foreign route in Handy catalog')
+        prepare(path, catalogs.encoded({'object': 'list', 'data': [
+            {'id': route, 'object': 'model', 'owned_by': 'cpa-' + scope}
+            for route in sorted(live)]}))
     path = profile / 'catalogs/codex-catalog.json'
     if path.exists():
         before = catalogs.read(path)
@@ -289,7 +296,7 @@ def main():
         if not receipts:
             raise ValueError('No scoped profile keys installed')
         extra_paths = {root / scope / relative for scope in ('personal', 'work')
-                       for relative in ('codex/config.toml', 'pi/cliproxyapi.json', 'pi/models.json')}
+                       for relative in ('codex/config.toml', 'pi/cliproxyapi.json', 'pi/models.json', 'catalogs/handy-models.json')}
         if settings.get('t3_claude_profiles') is True:
             phase('prepare-t3-claude', scope=None)
             current = t3_claude_targets(root, snapshots)
