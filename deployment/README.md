@@ -2,7 +2,7 @@
 
 This fork assembles one CLIProxyAPI gateway and three native plugins. The gateway routes requests to existing subscriptions and API accounts; it does not run model inference. The Synology runs the gateway in Docker through homelab/Komodo. EasyCLIProxyAPI is retained on the Mac for rollback, with automatic core startup disabled. Codex, Claude Code, OpenCode and Pi remain clients. T3 Code runs those clients and uses their catalogs.
 
-The source of truth is `stack.lock.json`, which pins reviewed commits in seven forks. The `review/*` branches hold scoped contributions. The current entry branch is `deployment/handy-personal-client`, including remote client layers through fork #15 and the optional Handy adapter in fork #16. The older `deployment/gateway-stack` branch lacks those helpers. This branch adds deployment tools and documentation; do not propose the personal deployment folder as part of the upstream capability PR.
+The source of truth is `stack.lock.json`, which pins reviewed commits in seven forks. The `review/*` branches hold scoped contributions. The current entry branch is `deployment/handy-personal-client`, including remote client layers through fork #15 and the optional Handy adapter in fork #16. The cached local `deployment/gateway-stack` ref is stale. The fork remote integration branch has merged early remote-helper work, but the later installed fixes remain in the client layers through #16. This branch adds deployment tools and documentation; do not propose the personal deployment folder as part of the upstream capability PR.
 
 Read [the continuation handoff](THREAD-HANDOFF.md) for current branch ownership and the first checks. The binary lock pins the NAS image components; it does not pin locally installed helper code.
 
