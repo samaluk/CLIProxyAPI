@@ -47,3 +47,8 @@ Unique checksum-pinned core and OpenCode Go releases were published, the existin
 ## Central gateway deployment layer
 
 `deployment/gateway` and the remote catalog client are maintained in this fork. They solve multi-host discovery and propagation without changing stock harness binaries. The general upstream opportunity is authenticated, account-scoped catalog discovery with canonical identity, complete capabilities and revision-based refresh. Propose that API separately from personal homelab paths, private profile keys and NAS packaging. Existing provider/core PRs remain separate contributions.
+
+
+## Current client helpers and handoff
+
+The current client source is `deployment/litellm-catalog-labels`, including fork drafts #9 through #15. It is separate from the October 4 binary lock and installed image. The October 6 review repaired repeated Pi backend relabelling and passed 43 focused tests. Mac and Debian helpers were reinstalled; no stock client binary or NAS image changed. Read [THREAD-HANDOFF.md](THREAD-HANDOFF.md) for a fresh-thread entry point, private-state locations and known gaps. Cached PR state is dated evidence; use PR Cockpit before acting on it.

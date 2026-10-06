@@ -4,7 +4,7 @@ These are the maintained operational helpers previously kept only in the local c
 
 Their reports and private backups default to `~/.local/state/cpa-stack`; set `CPA_STATE_DIR` to an existing lab directory to preserve its history. Before first use, create `artifacts/update-2026-09-20` and `private` beneath that state directory with private permissions. The historical default report subdirectory is retained for compatibility.
 
-- `scripts/refresh_scoped_catalogs.py` previews, then `--apply` updates scoped catalogs. `--standardize-names` also reconciles local labels. Main Codex configuration and its active catalog are protected. The helper currently accepts loopback gateway origins; NAS HTTPS client cutover is a separate adaptation/test step.
+- `scripts/refresh_scoped_catalogs.py` previews, then `--apply` updates scoped catalogs. `--standardize-names` also reconciles local labels. Main Codex configuration and its active catalog are protected. This older local helper accepts loopback origins and is retained for historical checks. Use the NAS catalog client below for the deployed setup.
 - `scripts/standardize_model_names.py` changes names only, preserving routing and capabilities.
 - `scripts/check_t3_opencode.py` checks authenticated temporary OpenCode v2 servers through the existing scoped wrappers. It does not create conversations or send model prompts.
 - `scripts/deploy_reviewed_stack.py --help` stages/verifies a Mac app/core pair and defaults to a plan. Supply all required hashes/heads and `--app-source`. `--execute` checks for active requests, backs up privately and restores previous binaries if validation fails, without restoring stale auth/session state.
@@ -12,7 +12,7 @@ Their reports and private backups default to `~/.local/state/cpa-stack`; set `CP
 
 The refresh helper authenticates read-only model discovery with the existing native Codex account, verifies its account ID against the gateway credential, and applies structured capabilities only to its explicitly mapped routes. It never refreshes tokens or modifies native Codex state. Account metadata overrides generic proxy fields; missing discovery defers that account's routes while preserving saved entries. Other scopes can still refresh. The report lists authenticated fields, proxy fields and deferred routes. No local plan, price or ultrafast deny policy is used.
 
-This adapter currently needs the Mac GUI credential layout and a matching native Codex login. A NAS deployment must supply equivalent account-bound discovery at the gateway; copying this Mac helper alone does not implement remote discovery. See [CAPABILITIES.md](../CAPABILITIES.md).
+This adapter currently needs the Mac GUI credential layout and a matching native Codex login. The deployed NAS catalog service supplies account-bound discovery. Copying this historical Mac helper alone does not implement remote discovery. See [CAPABILITIES.md](../CAPABILITIES.md).
 
 Run helper regressions with `python3 -m unittest discover -s deployment/mac/scripts -p 'test_*.py'`. Some imported historical tests expect their original lab fixtures; record any missing fixture separately from a product failure.
 
@@ -28,7 +28,7 @@ has no trusted Codex prompt template. No custom effort controls are invented.
 LiteLLM labels use authenticated canonical model identity where available. A
 deployment naming a different backend remains a distinct route and gets a
 `via` suffix; for example, a saved Luna 5.6 deployment now routed to Luna 6 is
-labelled `W/LL · 6 Luna · via 5.6 Luna`. Generated Pi name overrides follow that
+labelled `W/LL · 6 Luna · via 5.6 Luna`. Recognized generated Pi name overrides are removed so every later model update follows that
 label; deliberate custom names remain unchanged. Saved prompts are never
 automatically reassigned by this presentation change.
 

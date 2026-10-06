@@ -49,8 +49,8 @@ python3 deployment/mac/scripts/install_remote_sync.py \
 cpa-catalog-sync --apply
 ```
 
-Add `--binary claude=...` or `--binary pi=...` when installed. Pi needs its stock
-CPA provider package in the profile and Bun for its installed mapper. Reinstall
+Add `--binary claude=...` or `--binary pi=...` when installed. Pi uses the scoped native catalog when installed with `--t3-pi-profiles`. Keep its stock
+CPA mapper package and Bun for capability conversion, but retire the old combined-discovery extension from managed profile package lists. Reinstall
 with no binary flags to retain existing paths. The installer copies reviewed
 Python helpers locally; each refresh downloads model data only. It never
 executes gateway-supplied scripts or changes client binaries.
