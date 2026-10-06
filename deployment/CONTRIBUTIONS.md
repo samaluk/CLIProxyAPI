@@ -52,3 +52,8 @@ Unique checksum-pinned core and OpenCode Go releases were published, the existin
 ## Current client helpers and handoff
 
 The current client source is `deployment/litellm-catalog-labels`, including fork drafts #9 through #15. It is separate from the October 4 binary lock and installed image. The October 6 review repaired repeated Pi backend relabelling and passed 43 focused tests. Mac and Debian helpers were reinstalled; no stock client binary or NAS image changed. Read [THREAD-HANDOFF.md](THREAD-HANDOFF.md) for a fresh-thread entry point, private-state locations and known gaps. Cached PR state is dated evidence; use PR Cockpit before acting on it.
+
+
+## Optional non-agent client and usage persistence
+
+`deployment/handy-personal-client` adds an opt-in stock Caddy adapter for Handy without changing the gateway isolation policy or Handy binary. See HANDY.md and upstream discussion #2128. Separate upstream work is needed for provider/session support and reliable durable usage history. Easy's existing SQLite history is private runtime data, not a source contribution.

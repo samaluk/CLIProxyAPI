@@ -29,7 +29,7 @@ Every base capability starts with what the provider offers. Authenticated accoun
 1. Read [CONTRIBUTIONS.md](CONTRIBUTIONS.md) and [SYNC.md](SYNC.md).
 2. Use Python 3.12+ on the build host. Check out exact sources with `python3 deployment/prepare_sources.py`. This creates an ignored `.sources` directory and refuses to replace changed checkouts.
 3. Test and build changed components. Publish unique versions with checksums and increasing revisions. Preserve the existing channel URLs and rollback versions.
-4. Build the pinned Linux image on a build host, publish a unique tag and digest, and update both services in `homelab/easy-cli-proxy/compose.yaml` through a PR. Komodo deploys main. Easy's local update button does not update the NAS. Catalog definitions sync to managed clients every five minutes; see [REMOTE-GATEWAY.md](https://github.com/samaluk/CLIProxyAPI/blob/deployment/litellm-catalog-labels/deployment/REMOTE-GATEWAY.md).
+4. Build the pinned Linux image on a build host, publish a unique tag and digest, and update both services in `homelab/easy-cli-proxy/compose.yaml` through a PR. Komodo deploys main. Easy's local update button does not update the NAS. Catalog definitions sync to managed clients every five minutes; see [REMOTE-GATEWAY.md](https://github.com/samaluk/CLIProxyAPI/blob/deployment/handy-personal-client/deployment/REMOTE-GATEWAY.md).
 5. Preserve keys, account/session bindings, catalogs and aliases; verify both scopes and a tool continuation. Main Codex app/CLI/config/catalog changes remain the user's cutover step.
 
 Mac rollback channels, not the NAS release mechanism:
@@ -41,10 +41,10 @@ T3 and Pi remain stock installations. Their optional fork branches are reviewabl
 
 ## Central Synology deployment
 
-Read [REMOTE-GATEWAY.md](https://github.com/samaluk/CLIProxyAPI/blob/deployment/litellm-catalog-labels/deployment/REMOTE-GATEWAY.md) for the central catalog service and client sync installer, and [NAS-HANDOFF.md](NAS-HANDOFF.md) for credential cutover precautions. The homelab `easy-cli-proxy` stack owns the NAS deployment. The container recipe builds Linux amd64 libraries from the same Debian base, without AVX requirements. Build on another machine; keep the weak NAS for runtime.
+Read [REMOTE-GATEWAY.md](https://github.com/samaluk/CLIProxyAPI/blob/deployment/handy-personal-client/deployment/REMOTE-GATEWAY.md) for the central catalog service and client sync installer, and [NAS-HANDOFF.md](NAS-HANDOFF.md) for credential cutover precautions. The homelab `easy-cli-proxy` stack owns the NAS deployment. The container recipe builds Linux amd64 libraries from the same Debian base, without AVX requirements. Build on another machine; keep the weak NAS for runtime.
 
 An agent can start with:
 
-> Clone `https://github.com/samaluk/CLIProxyAPI`, branch `deployment/litellm-catalog-labels`. Read `deployment/THREAD-HANDOFF.md`, `deployment/README.md`, `deployment/stack.lock.json` and `deployment/NAS-HANDOFF.md`. Maintain the deployed Synology gateway using the existing homelab/Komodo conventions and Tailscale. Read `deployment/REMOTE-GATEWAY.md` before changing clients. Preserve account bindings and routing IDs; keep the NAS as the sole OAuth refresh owner. Verify each release before updating additional clients. Keep my main Codex configuration unchanged and give me its final cutover step.
+> Clone `https://github.com/samaluk/CLIProxyAPI`, branch `deployment/handy-personal-client`. Read `deployment/THREAD-HANDOFF.md`, `deployment/README.md`, `deployment/stack.lock.json` and `deployment/NAS-HANDOFF.md`. Maintain the deployed Synology gateway using the existing homelab/Komodo conventions and Tailscale. Read `deployment/REMOTE-GATEWAY.md` before changing clients. Preserve account bindings and routing IDs; keep the NAS as the sole OAuth refresh owner. Verify each release before updating additional clients. Keep my main Codex configuration unchanged and give me its final cutover step.
 
 Credentials, auth files, catalogs containing native prompts, binding state and GUI secrets are intentionally absent from this public repository. The handoff agent must use the existing private deployment or ask for the specific missing credential; it must not invent replacements.

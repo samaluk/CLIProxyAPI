@@ -69,3 +69,8 @@ infer an OpenCode schema failure from `ValueError` alone. Run the installed
 `cpa-catalog-sync` without `--apply` to preview; use the newest private failure
 receipt if a preview or scheduled apply fails. Keep the localhost relay for
 saved clients: catalog sync itself uses the NAS origin directly.
+
+
+## Optional Handy client
+
+Read [HANDY.md](../HANDY.md) for the Personal-only macOS loopback adapter. Handy and Caddy stay stock. Install the reviewed sync helper first; `install_handy.py` checks this prerequisite, installs only the opt-in listener and uses the existing private Personal key. Model-list data then follows the five-minute scheduler.
