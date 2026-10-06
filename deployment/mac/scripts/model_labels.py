@@ -49,11 +49,18 @@ def readable_model(model):
     return ' '.join(result)
 
 
-def model_label(route):
+def model_label(route, canonical_model_id=None):
     canonical = canonical_route(route)
     parts = canonical.split('/', 2)
     if len(parts) != 3 or parts[0] not in ('personal', 'work') or parts[1] not in SOURCES:
         return route
     scope, source, model = parts
+    # LiteLLM deployment aliases can name a different model than their backend.
+    # Use authenticated canonical metadata without changing the routing ID.
+    if source == 'litellm' and isinstance(canonical_model_id, str) and canonical_model_id:
+        identity = canonical_model_id.rsplit('/', 1)[-1]
+        if readable_model(identity) != readable_model(model):
+            return f"{'P' if scope == 'personal' else 'W'}/{SOURCES[source]} · {readable_model(identity)} · via {readable_model(model)}"
+        model = identity
     label = f"{'P' if scope == 'personal' else 'W'}/{SOURCES[source]} · {readable_model(model)}"
     return label + (' · alias' if canonical != route else '')

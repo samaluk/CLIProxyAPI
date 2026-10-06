@@ -83,6 +83,14 @@ def main():
                 model = arg.split('=', 1)[1]
         catalog = json.loads((profile / 'catalogs/codex-catalog.json').read_text())
         definition = next((m for m in catalog['models'] if m['slug'] == model), {})
+        # Non-Codex models may have capabilities but no trusted Codex prompt.
+        # Claude can still consume their authenticated scoped limits directly.
+        snapshot_path = ROOT / 'sync-state' / (scope + '.json')
+        if snapshot_path.is_file() and model.startswith(scope + '/'):
+            snapshot = json.loads(snapshot_path.read_text())
+            if snapshot.get('scope') == scope:
+                fresh = next((m for m in snapshot.get('models', []) if m['slug'] == model), {})
+                definition = {**definition, **fresh}
         for field, variable in [('context_window', 'CLAUDE_CODE_MAX_CONTEXT_TOKENS'), ('max_tokens', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS')]:
             value = definition.get(field)
             if isinstance(value, int) and value > 0:

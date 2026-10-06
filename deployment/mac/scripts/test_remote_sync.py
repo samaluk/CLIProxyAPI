@@ -41,6 +41,29 @@ class DiagnosticsTests(unittest.TestCase):
 
 
 class NativePiTests(unittest.TestCase):
+    def test_generated_pi_override_follows_authenticated_label_but_custom_name_stays(self):
+        route='work/litellm/gpt-5.6-luna'
+        document={'providers':{'cliproxyapi':{'modelOverrides':{route:{'name':'W/LL · 5.6 Luna','maxTokens':100}}}}}
+        cache={'models':[{'id':route,'name':'W/LL · 6 Luna · via 5.6 Luna'}]}
+        result=remote_sync.catalogs.pi_native_update(document,cache,'work','https://nas.example')
+        self.assertEqual(result['providers']['cliproxyapi']['modelOverrides'][route],{'maxTokens':100})
+        self.assertEqual(document['providers']['cliproxyapi']['modelOverrides'][route]['name'],'W/LL · 5.6 Luna')
+        document['providers']['cliproxyapi']['modelOverrides'][route]['name']='My custom name'
+        result=remote_sync.catalogs.pi_native_update(document,cache,'work','https://nas.example')
+        self.assertEqual(result['providers']['cliproxyapi']['modelOverrides'][route]['name'],'My custom name')
+
+    def test_generated_pi_override_does_not_mask_later_backend_changes(self):
+        route='work/litellm/gpt-5.6-luna'
+        previous='W/LL · 6 Luna · via 5.6 Luna'
+        document={'providers':{'cliproxyapi':{'models':[{'id':route,'name':previous}],
+                  'modelOverrides':{route:{'name':previous,'maxTokens':100}}}}}
+        for name in ('W/LL · 6.1 Sol · via 5.6 Luna','W/LL · 6 Luna · via 5.6 Luna'):
+            cache={'models':[{'id':route,'name':name}]}
+            document=remote_sync.catalogs.pi_native_update(document,cache,'work','https://nas.example')
+            provider=document['providers']['cliproxyapi']
+            self.assertEqual(provider['models'][0]['name'],name)
+            self.assertEqual(provider['modelOverrides'][route],{'maxTokens':100})
+
     def test_catalog_only_registers_scope_and_retains_saved_ids_and_overrides(self):
         document = {'providers': {'cliproxyapi': {'modelOverrides': {'personal/saved': {'name': 'mine'}}}}}
         models = [{'id': 'personal/saved', 'name': 'saved', 'reasoning': True, 'thinkingLevelMap': {'high':'high'}, 'contextWindow': 4000},
@@ -57,6 +80,38 @@ class NativePiTests(unittest.TestCase):
 
 
 class RemoteSyncTests(unittest.TestCase):
+    def test_t3_claude_refresh_is_scoped_guarded_and_preserves_custom_options(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);path=root/'settings.json'
+            route='work/litellm/opus'
+            instance={'driver':'claudeAgent','config':{'binaryPath':str(root/'work/bin/claude'),'customModels':[{'slug':route,'name':'old','capabilities':{'custom':'preserve'}}]}}
+            original={'providerInstances':{'claude_work':instance,'unrelated':{'keep':True}}}
+            path.write_text(json.dumps(original))
+            snapshots={'work':{'scope':'work','models':[{'slug':route,'canonical_model_id':'gpt-6-luna'},{'slug':'work/litellm/new'}]}}
+            result=json.loads(remote_sync.t3_claude_targets(root,snapshots,path)[path]['after'])
+            models=result['providerInstances']['claude_work']['config']['customModels']
+            self.assertEqual(models[0]['capabilities'],{'custom':'preserve'})
+            self.assertEqual(models[0]['name'],'W/LL · 6 Luna · via Opus')
+            self.assertEqual(models[1]['slug'],'work/litellm/new')
+            self.assertEqual(result['providerInstances']['unrelated'],{'keep':True})
+            snapshots['work']['models'][0]['slug']='personal/foreign'
+            with self.assertRaises(ValueError):remote_sync.t3_claude_targets(root,snapshots,path)
+            snapshots['work']['models']=[];instance['config']['binaryPath']='/unmanaged/claude';path.write_text(json.dumps(original))
+            with self.assertRaises(ValueError):remote_sync.t3_claude_targets(root,snapshots,path)
+
+    def test_litellm_label_uses_backend_identity_without_rewriting_route_or_prompt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);path=root/'work/catalogs/codex-catalog.json';path.parent.mkdir(parents=True)
+            route='work/litellm/gpt-5.6-luna'
+            path.write_text(json.dumps({'models':[{'slug':route,'base_instructions':'saved native prompt'}]}))
+            snapshot={'models':[{'slug':route,'canonical_model_id':'gpt-6-luna'}]}
+            changes,_=remote_sync.prepare_profile(root,'work',snapshot,'https://nas.example',False)
+            model=json.loads(changes[path]['after'])['models'][0]
+            self.assertEqual(model['slug'],route)
+            self.assertEqual(model['display_name'],'W/LL · 6 Luna · via 5.6 Luna')
+            self.assertEqual(model['base_instructions'],'saved native prompt')
+            self.assertEqual(remote_sync.model_label('work/litellm/qwen3-coder','qwen/qwen3-coder'),'W/LL · Qwen 3 Coder')
+
     def test_origins_reject_plaintext_remote_and_credential_redirect_inputs(self):
         self.assertEqual(remote_sync.origin('https://nas.example/'), 'https://nas.example')
         self.assertEqual(remote_sync.origin('http://127.0.0.1:8317'), 'http://127.0.0.1:8317')
