@@ -80,6 +80,18 @@ class NativePiTests(unittest.TestCase):
 
 
 class RemoteSyncTests(unittest.TestCase):
+    def test_handy_export_contains_only_scoped_ids_and_no_prompt_material(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);path=root/'personal/catalogs/handy-models.json';path.parent.mkdir(parents=True)
+            path.write_text('{}')
+            snapshot={'models':[{'slug':'personal/codex-oauth/gpt-6-luna','base_instructions':'private prompt'}]}
+            changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
+            exported=json.loads(changes[path]['after'])
+            self.assertEqual(exported['data'],[{'id':'personal/codex-oauth/gpt-6-luna','object':'model','owned_by':'cpa-personal'}])
+            self.assertNotIn('private prompt',changes[path]['after'].decode())
+            snapshot['models'].append({'slug':'work/foreign'})
+            with self.assertRaises(ValueError):remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
+
     def test_t3_claude_refresh_is_scoped_guarded_and_preserves_custom_options(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);path=root/'settings.json'
