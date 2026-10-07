@@ -86,6 +86,55 @@ class PolicyTests(unittest.TestCase):
             self.assertEqual([m['id'] for m in pi['providers']['cliproxyapi']['models']], [keep])
             self.assertEqual(len(json.loads((root/'work/catalogs/codex-catalog.json').read_text())['models']), 3)
 
+    def test_native_usage_preserves_personal_logins_and_keeps_inference_on_gateway(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder); root = home/'profiles'
+            native = b'{"tokens":{"access_token":"native-fixture","refresh_token":"refresh-fixture"}}'
+            for scope in ('personal','work'):
+                profile = root/scope
+                for relative in ('keys','codex','catalogs'): (profile/relative).mkdir(parents=True)
+                (profile/'keys/downstream.key').write_text('gateway-'+scope)
+                (profile/'codex/auth.json').write_bytes(native)
+                (profile/'codex/config.toml').write_text('model="'+scope+'/fixture"\nforced_login_method="api"\n[model_providers.cpa-'+scope+']\nbase_url="https://nas.example/v1"\nrequires_openai_auth=true\n')
+                (profile/'catalogs/codex-catalog.json').write_text(json.dumps({'models':[{'slug':scope+'/fixture'}]}))
+            (home/'.codex').mkdir(); (home/'.codex/auth.json').write_bytes(native)
+            (home/'.codex/config.toml').write_text('forced_login_method="api"\nnotify=["keep"]\n')
+            settings = {'endpoint':'https://nas.example','binaries':{'codex':'/native/codex'},'codex_native_usage':True}
+            with patch.object(Path,'home',return_value=home):
+                scoped = proxy_only.scoped_auth_targets(root,settings)
+            self.assertNotIn(root/'personal/codex/auth.json',scoped)
+            self.assertEqual(json.loads(scoped[root/'work/codex/auth.json'][0]),{'OPENAI_API_KEY':'gateway-work'})
+            prepared = {p:{'after':target[0]} for p,target in scoped.items()}
+            default = proxy_only.default_home_targets(root,settings,prepared,home)
+            self.assertNotIn(home/'.codex/auth.json',default)
+            for path,data in [(root/'personal/codex/config.toml',scoped[root/'personal/codex/config.toml'][0]),
+                              (home/'.codex/config.toml',default[home/'.codex/config.toml'][0])]:
+                config=tomllib.loads(data.decode())
+                self.assertNotIn('forced_login_method',config)
+                provider=config['model_providers']['cpa-personal']
+                self.assertEqual(provider['base_url'],'https://nas.example/v1')
+                self.assertEqual(provider['experimental_bearer_token'],'gateway-personal')
+                self.assertTrue(provider['requires_openai_auth'])
+            self.assertEqual((home/'.codex/auth.json').read_bytes(),native)
+            self.assertEqual((root/'personal/codex/auth.json').read_bytes(),native)
+
+    def test_native_usage_login_exception_is_personal_codex_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            for scope in ('personal','work'):
+                key=root/scope/'keys/downstream.key';key.parent.mkdir(parents=True);key.write_text('fixture-'+scope)
+            (root/'gateway.json').write_text(json.dumps({'endpoint':'https://nas.example','proxy_only':True,
+                'codex_native_usage':True,'binaries':{'codex':'/native/codex','pi':'/native/pi'}}))
+            for scope,harness in [('personal','codex'),('work','codex'),('personal','pi')]:
+                with patch.object(launch_harness,'ROOT',root), patch('sys.argv',['launch',scope,harness,'login']), \
+                     patch.object(os,'execve') as execute:
+                    if (scope,harness)==('personal','codex'):
+                        launch_harness.main()
+                        self.assertEqual(execute.call_args.args[2]['CPA_API_KEY'],'fixture-personal')
+                    else:
+                        with self.assertRaises(SystemExit):launch_harness.main()
+                        execute.assert_not_called()
+
     def test_claude_menu_removes_saved_models_but_retains_live_custom_options(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); path = root/'settings.json'

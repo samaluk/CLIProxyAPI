@@ -273,7 +273,7 @@ def t3_pi_targets(root, endpoint, binaries, settings_path=None):
     targets[settings_path] = (catalogs.encoded(settings), 0o600, before)
     return targets
 
-def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_opencode_services=False, t3_pi_profiles=False, proxy_only=False, cursor_pi_personal=False, shared_settings_url=None):
+def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_opencode_services=False, t3_pi_profiles=False, proxy_only=False, cursor_pi_personal=False, shared_settings_url=None, codex_native_usage=False):
     if sys.version_info < (3, 11) or sys.platform not in ('darwin', 'linux'):
         raise ValueError('Python 3.11+ on macOS or Linux/WSL required')
     endpoint = remote_sync.origin(endpoint)
@@ -288,6 +288,7 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
     t3_pi_profiles = t3_pi_profiles or config.get('t3_pi_profiles', False)
     proxy_only = proxy_only or config.get('proxy_only', False)
     cursor_pi_personal = cursor_pi_personal or config.get('pi_cursor_personal', False)
+    codex_native_usage = codex_native_usage or config.get('codex_native_usage', False)
     binaries = dict(config.get('binaries', {}), **binaries)
     binaries = native_entrypoints(binaries, proxy_only)
     if not binaries:
@@ -311,6 +312,10 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
         if 'pi' in binaries:
             config['pi_native_catalog'] = True
         pi_selector = False
+    if codex_native_usage:
+        if not proxy_only or 'codex' not in binaries:
+            raise ValueError('Native Codex usage requires proxy-only Codex configuration')
+        config['codex_native_usage'] = True
     if shared_settings_url is not None:
         config['shared_settings_url'] = shared_settings_url
     if pi_selector:
@@ -419,6 +424,7 @@ if __name__ == '__main__':
     parser.add_argument('--t3-pi-profiles', action='store_true', help='Connect Personal/Work T3 instances to scoped native Pi catalogs')
     parser.add_argument('--proxy-only', action='store_true', help='Make proxy discovery authoritative and install scoped entrypoints for all harnesses')
     parser.add_argument('--cursor-pi-personal', action='store_true', help='Preserve the existing native Cursor SDK only in Personal Pi')
+    parser.add_argument('--codex-native-usage', action='store_true', help='Preserve Personal Codex native login for usage while inference uses the gateway key')
     parser.add_argument('--shared-settings-url', help='HTTPS URL of the reviewed shared settings JSON, containing no credentials')
     args = parser.parse_args()
-    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector, args.t3_opencode_services, args.t3_pi_profiles, args.proxy_only, args.cursor_pi_personal, args.shared_settings_url), indent=2))
+    print(json.dumps(install(args.profiles, args.endpoint, dict(item.split('=', 1) for item in args.binary), not args.no_schedule, args.pi_selector, args.t3_opencode_services, args.t3_pi_profiles, args.proxy_only, args.cursor_pi_personal, args.shared_settings_url, args.codex_native_usage), indent=2))

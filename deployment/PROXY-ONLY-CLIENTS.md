@@ -1,6 +1,6 @@
 # Proxy-only clients and shared settings
 
-The gateway is the model source and the owner of upstream subscription/API credentials. Managed harnesses receive only their scoped downstream gateway key. Successful catalog snapshots remove saved routes that the proxy no longer advertises. Failed refreshes retain the last proxy catalog. These are configuration controls for ordinary launches, not an OS sandbox.
+The gateway is the model source and owns the credentials used for proxy inference. Managed model requests use scoped downstream gateway keys. Personal Codex can retain a separate native ChatGPT login for subscription usage displays. Successful catalog snapshots remove saved routes that the proxy no longer advertises. Failed refreshes retain the last proxy catalog. These are configuration controls for ordinary launches, not an OS sandbox.
 
 ## Install the native tools
 
@@ -81,7 +81,17 @@ Existing binary paths and opt-ins are retained. On a Mac that already has the Cu
 
 Ordinary `codex`, `claude`, `opencode` and `pi` commands use Personal. Explicit `*-work` commands use Work. Children inherit their parent's `AGENT_PROFILE`. No account question is shown. The installer updates default homes as well as scoped homes, preserving histories, hooks and unrelated settings. Old auth/config files are privately backed up; provider access keys in active harness auth files are replaced by gateway keys. On macOS the native Claude keychain login is also privately archived before retirement, with a second read to guard against concurrent refresh. Nothing revokes an upstream account or restores an old OAuth refresh token.
 
-Codex uses file-based API authentication with `requires_openai_auth = true` and `forced_login_method = "api"`. The file contains the gateway key, not an upstream OpenAI key. This lets T3 identify the API-backed account and report native ChatGPT quota reads as unsupported instead of a failed native subscription probe. The provider URL and model catalog still point exclusively to the gateway.
+API-only Codex profiles use file-based API authentication with `requires_openai_auth = true` and `forced_login_method = "api"`. Their auth file contains the gateway key. This lets T3 identify the API-backed account and report native ChatGPT quota reads as unsupported. The provider URL and model catalog point exclusively to the gateway.
+
+## Native Codex subscription usage
+
+The API-only migration removed native ChatGPT OAuth from the default and scoped Codex homes. That also removed the subscription identity required by Codex Desktop, T3's native Codex quota probe and CodexBar's OAuth source. A downstream gateway key cannot provide that native account identity.
+
+On a machine needing native Personal usage, add `--codex-native-usage` to the proxy-only installer. The opt-in persists in that machine's private `gateway.json`. It stops replacing the default Personal and scoped Personal `auth.json` files, removes forced API login, and stores the scoped gateway bearer on the selected CPA model provider. `requires_openai_auth` stays true so Codex exposes its native account to usage clients. Inference still goes to the gateway using its key. Work and other harnesses retain their existing proxy-only authentication.
+
+Sign in freshly for the default Codex Desktop home and run `codex-personal login` for T3's existing Personal home. Each home owns its own native login; OAuth refresh tokens are not copied between homes, machines or the NAS. T3 keeps its existing-instance mode and scoped launcher. Its separate managed token-sharing setup selects its own OpenAI provider, so use the scoped CLI for this proxy-backed instance. CodexBar normally reads the default `~/.codex` login, unless its process has an explicit `CODEX_HOME`. Archived OAuth tokens remain retired. The NAS keeps its current upstream login and inference remains proxied.
+
+Native usage credentials remain private and outside shared settings or Git. The opt-in permits Personal `codex login` for this purpose. Subscription quota is distinct from gateway request/token usage, and it belongs to the signed-in ChatGPT account even when the proxy can route to additional accounts or providers.
 
 ## T3 HOME paths
 

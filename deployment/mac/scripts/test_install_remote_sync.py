@@ -57,6 +57,24 @@ class InstallTests(unittest.TestCase):
                     installer.install(root, 'https://nas.example', {'pi': str(entry)}, False, True)
             self.assertFalse((root/'gateway.json').exists())
 
+    def test_native_usage_opt_in_survives_reinstall_and_preserves_fresh_auth(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home=Path(folder).resolve();root=self.fixture(home)
+            path=root/'personal/codex/config.toml';path.parent.mkdir(parents=True)
+            path.write_text('model="personal/fixture"\n[model_providers.cpa-personal]\nbase_url="https://nas.example/v1"\n')
+            path=root/'personal/catalogs/codex-catalog.json';path.parent.mkdir(parents=True)
+            path.write_text('{"models":[{"slug":"personal/fixture"}]}')
+            native=b'{"tokens":{"access_token":"fresh-native-fixture"}}'
+            (root/'personal/codex/auth.json').write_bytes(native)
+            (home/'.codex').mkdir();(home/'.codex/auth.json').write_bytes(native)
+            with patch.object(Path,'home',return_value=home):
+                installer.install(root,'https://nas.example',{'codex':sys.executable},False,proxy_only=True,codex_native_usage=True)
+                installer.install(root,'https://nas.example',{},False)
+            settings=json.loads((root/'gateway.json').read_text())
+            self.assertTrue(settings['codex_native_usage'])
+            self.assertEqual((home/'.codex/auth.json').read_bytes(),native)
+            self.assertEqual((root/'personal/codex/auth.json').read_bytes(),native)
+
     def test_proxy_pi_catalog_sync_does_not_require_t3_instances(self):
         import remote_sync
         with tempfile.TemporaryDirectory() as folder:

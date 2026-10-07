@@ -41,7 +41,8 @@ def main():
     env = dict(os.environ)
     if settings.get('proxy_only') is True:
         arguments = sys.argv[3:]
-        if arguments[:1] == ['login'] or arguments[:2] == ['auth', 'login']:
+        native_usage_login = harness == 'codex' and scope == 'personal' and settings.get('codex_native_usage') is True
+        if (arguments[:1] == ['login'] or arguments[:2] == ['auth', 'login']) and not native_usage_login:
             sys.exit('Provider login belongs on the proxy; this harness only uses its scoped gateway key.')
         cursor_exception = scope == 'personal' and harness == 'pi' and settings.get('pi_cursor_personal') is True
         for name in list(env):

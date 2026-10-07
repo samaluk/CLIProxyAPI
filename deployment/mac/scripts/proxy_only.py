@@ -1,7 +1,7 @@
 """Local, administrator-selected policy for default harness configuration.
 
-Only downstream gateway keys enter harness files. Provider tokens are archived
-by the install transaction; conversation directories are never modified.
+Inference uses downstream gateway keys. An explicit Personal Codex usage
+exception preserves its native login; conversation directories are never modified.
 """
 import copy
 import json
@@ -29,19 +29,27 @@ def root_values(raw, values):
     return result
 
 
-def provider_config(raw, scope, endpoint, key, catalog_path, model):
+def native_codex_usage(settings, scope):
+    return scope == 'personal' and settings.get('codex_native_usage') is True
+
+
+def provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage=False):
     sections = re.split(r'(?m)(?=^\[)', raw)
     raw = ''.join(section for section in sections if not re.match(r'^\[model_providers\.', section))
-    raw = root_values(raw, {'model_provider': 'cpa-' + scope, 'model': model,
-                           'model_catalog_json': str(catalog_path),
-                           'forced_login_method': 'api', 'cli_auth_credentials_store': 'file'})
-    # The API-key auth.json file also works for the stock desktop app, which
-    # does not inherit the profile launcher's environment. Requiring API auth
-    # lets T3 recognize this as an API-backed profile rather than probing an
-    # absent ChatGPT subscription account.
+    values = {'model_provider': 'cpa-' + scope, 'model': model,
+              'model_catalog_json': str(catalog_path), 'cli_auth_credentials_store': 'file'}
+    if native_usage:
+        raw = re.sub(r'(?m)^forced_login_method\s*=.*\n?', '', raw)
+    else:
+        values['forced_login_method'] = 'api'
+    raw = root_values(raw, values)
+    # The desktop app does not inherit the launcher's environment. A native
+    # usage profile supplies its gateway bearer here and keeps OAuth in auth.json.
     raw = raw.rstrip() + (f'\n\n[model_providers.cpa-{scope}]\nname = "CLIProxyAPI {scope.title()}"\n'
             f'base_url = {json.dumps(endpoint + "/v1")}\nwire_api = "responses"\n'
             'requires_openai_auth = true\n')
+    if native_usage:
+        raw += 'experimental_bearer_token = ' + json.dumps(key) + '\n'
     parsed = tomllib.loads(raw)
     if 'agents' in parsed:
         pattern = r'(?ms)(^\[agents\]\s*\n)(.*?)(?=^\[|\Z)'
@@ -96,7 +104,8 @@ def default_home_targets(root, settings, prepared=None, home=None, snapshots=Non
         catalog_path = profile / 'catalogs/codex-catalog.json'
         allowed = {m['slug'] for m in json.loads(read_scoped(catalog_path))['models']}
         model = choose_route(document.get('model'), scope, allowed, scoped['model'])
-        updated = provider_config(raw, scope, endpoint, key, catalog_path, model).decode()
+        native_usage = native_codex_usage(settings, scope)
+        updated = provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage).decode()
         if 'model_reasoning_effort' in scoped:
             updated = root_values(updated, {'model_reasoning_effort': scoped['model_reasoning_effort']})
         limits = {k: v for k, v in scoped.get('agents', {}).items()
@@ -105,7 +114,8 @@ def default_home_targets(root, settings, prepared=None, home=None, snapshots=Non
             import harness_settings
             updated = harness_settings.agents(updated, limits)
         emit(path, updated.encode())
-        emit(home / '.codex/auth.json', {'OPENAI_API_KEY': key})
+        if not native_usage:
+            emit(home / '.codex/auth.json', {'OPENAI_API_KEY': key})
 
     if 'claude' in binaries:
         path = home / '.claude/settings.json'
@@ -223,15 +233,26 @@ def scoped_auth_targets(root, settings):
             continue
         if 'codex' in settings['binaries']:
             path = profile / 'codex/auth.json'
-            targets[path] = (catalogs.encoded({'OPENAI_API_KEY': key_path.read_text().strip()}), 0o600)
+            native_usage = native_codex_usage(settings, scope)
+            key = key_path.read_text().strip()
+            if not native_usage:
+                targets[path] = (catalogs.encoded({'OPENAI_API_KEY': key}), 0o600)
             path = profile / 'codex/config.toml'
-            raw = root_values(path.read_text(), {'forced_login_method': 'api', 'cli_auth_credentials_store': 'file'})
+            raw = path.read_text()
+            if native_usage:
+                raw = re.sub(r'(?m)^forced_login_method\s*=.*\n?', '', raw)
+                raw = root_values(raw, {'cli_auth_credentials_store':'file'})
+            else:
+                raw = root_values(raw, {'forced_login_method':'api', 'cli_auth_credentials_store':'file'})
             pattern = r'(?ms)(^\[model_providers\.cpa-' + scope + r'\]\s*\n)(.*?)(?=^\[|\Z)'
             def require_api_auth(match):
                 body, count = re.subn(r'(?m)^requires_openai_auth\s*=.*$',
                                       'requires_openai_auth = true', match[2])
                 if not count:
                     body += '\nrequires_openai_auth = true\n'
+                if native_usage:
+                    body = re.sub(r'(?m)^experimental_bearer_token\s*=.*\n?', '', body)
+                    body = body.rstrip() + '\nexperimental_bearer_token = ' + json.dumps(key) + '\n'
                 return match[1] + body
             raw, count = re.subn(pattern, require_api_auth, raw)
             if count != 1:
