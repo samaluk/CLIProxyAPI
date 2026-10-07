@@ -77,7 +77,7 @@ def reconcile(root, changed_files, t3_path=None):
     for scope, port in [('personal', 49374), ('work', 49375)]:
         profile = root / scope
         binary = profile / 'bin/opencode'
-        if not command(binary, '--version').removeprefix('opencode v').startswith('2.'):
+        if catalogs.opencode_major_version(str(binary)) != 2:
             raise ValueError('The T3 service connection requires stock OpenCode 2')
         config_path = profile / 'config/opencode/service.json'
         config = catalogs.read(config_path) if config_path.exists() else {}
