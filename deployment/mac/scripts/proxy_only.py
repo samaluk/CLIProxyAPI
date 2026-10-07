@@ -186,10 +186,10 @@ def shell_targets(settings, home=None):
     """Route ordinary shell entrypoints and stop exporting a legacy model key."""
     home = home or Path.home()
     targets = {}
-    body = '# Managed proxy-only harness entrypoints.\nexport PATH="$HOME/.local/bin:$PATH"\n'
+    body = '# Managed proxy-only harness entrypoints.\nexport PATH="$HOME/.config/cpa/bin:$HOME/.local/bin:$PATH"\n'
     body += 'unset OPENCODE_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN\n'
     for harness in settings['binaries']:
-        body += f'{harness}() {{ "$HOME/.local/bin/{harness}" "$@"; }}\n'
+        body += f'{harness}() {{ "$HOME/.config/cpa/bin/{harness}" "$@"; }}\n'
     targets[home / '.config/cpa/proxy-shell.sh'] = (body.encode(), 0o600)
     block = ('\n# BEGIN CPA PROXY-ONLY HARNESS ENTRYPOINTS\n'
              '[ ! -f "$HOME/.config/cpa/proxy-shell.sh" ] || . "$HOME/.config/cpa/proxy-shell.sh"\n'

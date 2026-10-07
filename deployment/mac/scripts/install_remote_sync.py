@@ -38,6 +38,20 @@ def python_runtime():
     raise ValueError('No stable Python 3.11+ interpreter is available')
 
 
+def native_entrypoints(binaries, proxy_only):
+    """Resolve native symlinks before replacing their public command path."""
+    result = dict(binaries)
+    if proxy_only:
+        for name, binary in result.items():
+            path = Path(binary)
+            entry = Path.home() / '.config/cpa/bin' / name
+            if path == entry:
+                if not path.is_symlink() or path.resolve() == entry:
+                    raise ValueError('Native executable overlaps a managed entrypoint; supply its real installation path')
+                result[name] = str(path.resolve())
+    return result
+
+
 def write_transaction(targets, backup, activate=None, recover=None):
     """Archive preflight contents and roll back failures. None retires a file.
 
@@ -275,6 +289,7 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
     proxy_only = proxy_only or config.get('proxy_only', False)
     cursor_pi_personal = cursor_pi_personal or config.get('pi_cursor_personal', False)
     binaries = dict(config.get('binaries', {}), **binaries)
+    binaries = native_entrypoints(binaries, proxy_only)
     if not binaries:
         raise ValueError('Supply at least one --binary on first installation')
     for name, binary in binaries.items():
@@ -368,7 +383,7 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
             entry = ('#!/bin/sh\nscope="${AGENT_PROFILE:-personal}"\n'
                      'case "$scope" in personal|work) ;; *) echo "Invalid inherited proxy account" >&2; exit 1 ;; esac\n'
                      'exec ' + command_line + ' "$scope" ' + shlex.quote(harness) + ' "$@"\n')
-            targets[bin_dir / harness] = (entry.encode(), 0o700)
+            targets[Path.home() / '.config/cpa/bin' / harness] = (entry.encode(), 0o700)
     if pi_selector and not proxy_only:
         targets[root / 'select-pi.py'] = ((source / 'select_pi.py').read_bytes(), 0o600)
         entry = '#!/bin/sh\nexec ' + shlex.join([python, str(root / 'select-pi.py')]) + ' "$@"\n'

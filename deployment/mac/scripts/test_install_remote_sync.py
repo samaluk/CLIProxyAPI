@@ -12,6 +12,18 @@ import launch_harness
 
 
 class InstallTests(unittest.TestCase):
+    def test_native_symlink_is_resolved_before_public_wrapper_is_replaced(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home=Path(folder);native=home/'.local/share/claude/versions/native';native.parent.mkdir(parents=True)
+            native.write_text('native executable')
+            entry=home/'.config/cpa/bin/claude';entry.parent.mkdir(parents=True);entry.symlink_to(native)
+            with patch.object(Path,'home',return_value=home):
+                result=installer.native_entrypoints({'claude':str(entry)},True)
+                self.assertEqual(result,{'claude':str(native.resolve())})
+                entry.unlink();entry.write_text('wrapper')
+                with self.assertRaises(ValueError):installer.native_entrypoints({'claude':str(entry)},True)
+            self.assertEqual(native.read_text(),'native executable')
+
     def test_proxy_only_install_has_no_prompt_and_preserves_work_inheritance(self):
         with tempfile.TemporaryDirectory() as folder:
             home=Path(folder).resolve();root=self.fixture(home)
@@ -26,7 +38,7 @@ class InstallTests(unittest.TestCase):
             self.assertFalse(settings['pi_selector'])
             self.assertTrue(settings['authoritative_catalog'])
             self.assertEqual(settings['entrypoint_mode'],'personal_default')
-            wrapper=(home/'.local/bin/codex').read_text()
+            wrapper=(home/'.config/cpa/bin/codex').read_text()
             self.assertIn('${AGENT_PROFILE:-personal}',wrapper)
             self.assertNotIn('select-pi',wrapper)
             self.assertEqual(json.loads((home/'.codex/auth.json').read_text()),{'OPENAI_API_KEY':'fixture-downstream-key'})
