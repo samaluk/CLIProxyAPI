@@ -94,7 +94,7 @@ class PolicyTests(unittest.TestCase):
                 'config': {'binaryPath': str(root/'work/bin/claude'), 'customModels': [
                     {'slug': keep, 'capabilities': {'custom': True}}, removed]}}}}))
             targets = remote_sync.t3_claude_targets(root, {'work': {'scope': 'work', 'models': [{'slug': keep}]}}, path, True)
-            models = json.loads(targets[path]['after'])['providerInstances']['claude_work']['config']['customModels']
+            models = json.loads(targets[path.resolve()]['after'])['providerInstances']['claude_work']['config']['customModels']
             self.assertEqual([m['slug'] for m in models], [keep])
             self.assertEqual(models[0]['capabilities'], {'custom': True})
 

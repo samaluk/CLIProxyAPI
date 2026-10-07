@@ -100,7 +100,7 @@ class RemoteSyncTests(unittest.TestCase):
             original={'providerInstances':{'claude_work':instance,'unrelated':{'keep':True}}}
             path.write_text(json.dumps(original))
             snapshots={'work':{'scope':'work','models':[{'slug':route,'canonical_model_id':'gpt-6-luna'},{'slug':'work/litellm/new'}]}}
-            result=json.loads(remote_sync.t3_claude_targets(root,snapshots,path)[path]['after'])
+            result=json.loads(remote_sync.t3_claude_targets(root,snapshots,path)[path.resolve()]['after'])
             models=result['providerInstances']['claude_work']['config']['customModels']
             self.assertEqual(models[0]['capabilities'],{'custom':'preserve'})
             self.assertEqual(models[0]['name'],'W/LL · 6 Luna · via Opus')

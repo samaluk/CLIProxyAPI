@@ -44,6 +44,7 @@ def settled_models(url, password, scope, expected, directory):
 
 def connect_t3(path, root, connections):
     """Change only existing instances already assigned to these scoped wrappers."""
+    path = path.resolve()
     before = path.read_bytes()
     settings = json.loads(before)
     changed = False

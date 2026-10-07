@@ -144,6 +144,28 @@ class InstallTests(unittest.TestCase):
         path.write_text('fixture-downstream-key')
         return root
 
+    def test_t3_pi_settings_use_the_existing_symlink_target(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); root = self.fixture(home)
+            storage = home/'storage'; (storage/'userdata').mkdir(parents=True)
+            (home/'.t3').symlink_to(storage, target_is_directory=True)
+            path = storage/'userdata/settings.json'; path.write_text('{}')
+            for scope in ('personal', 'work'):
+                profile = root/scope
+                (profile/'pi').mkdir(parents=True)
+                (profile/'keys').mkdir(exist_ok=True)
+                (profile/'keys/downstream.key').write_text('fixture')
+                (profile/'pi/models.json').write_text('{"providers":{"cliproxyapi":{}}}')
+                (profile/'pi/cliproxyapi-models.json').write_text('{"models":[]}')
+                (profile/'pi/settings.json').write_text('{"packages":[]}')
+            with patch.object(Path, 'home', return_value=home), patch.object(installer.remote_sync, 'fetch',
+                    side_effect=lambda endpoint, key, scope: {'models':[{'slug':scope+'/fixture'}]}):
+                planned = installer.t3_pi_targets(root, 'https://nas.example', {'pi':sys.executable})
+                installer.write_transaction(planned, root/'backup')
+            self.assertIn(path, planned)
+            self.assertIn('pi_work',json.loads(path.read_text())['providerInstances'])
+            self.assertTrue((home/'.t3').is_symlink())
+
     def test_reinstall_preserves_other_binaries_and_empty_options(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve(); root = self.fixture(home)

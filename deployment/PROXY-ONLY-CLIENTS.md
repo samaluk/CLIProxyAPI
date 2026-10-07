@@ -4,14 +4,14 @@ The gateway is the model source and the owner of upstream subscription/API crede
 
 ## Install the native tools
 
-Run from a reviewed checkout on each Mac or Linux machine with mise and Python 3.11+ installed. Install Codex, Claude Code, Pi, Cursor Agent and Antigravity ACP through the shared mise manifest. Install OpenCode 2 through its official bare installer, pinned to the stable version used by the T3 services.
+Run from a reviewed checkout on each Mac or Linux machine with mise and Python 3.11+ installed. Install Codex, Claude Code, Pi and Cursor Agent through the shared mise manifest. Install OpenCode 2 through its official bare installer, pinned to the stable version used by the T3 services. Install Antigravity through T3's provider setup.
 
 ```sh
 mkdir -p ~/.config/mise/conf.d
 cp deployment/harnesses.mise.toml ~/.config/mise/conf.d/cpa-harnesses.toml
 mise trust ~/.config/mise/conf.d/cpa-harnesses.toml
 mise install codex@0.160.1 claude-code@2.1.292 pi@1.0.4 \
-  cursor-agent@2026.10.01-e373342 http:antigravity-acp@1.3.0
+  cursor-agent@2026.10.01-e373342
 curl -fsSL https://opencode.ai/v2/install -o /tmp/cpa-opencode2-install.sh
 bash /tmp/cpa-opencode2-install.sh --version 2.0.24 --no-modify-path
 ~/.opencode/bin/opencode --version
@@ -19,22 +19,7 @@ bash /tmp/cpa-opencode2-install.sh --version 2.0.24 --no-modify-path
 
 The result must be `opencode v2.0.24`. The `/install` URL and mise's `opencode` entry install OpenCode 1. The old `@opencode-ai/cli` prerelease lacks the service `reload` command required here. Do not select it for these profiles. Existing unused installations can remain while a process still owns them.
 
-Antigravity's native ACP binary is `$(mise where http:antigravity-acp@1.3.0)/agy_acp_server.par`. `launch_antigravity.py` adds `--gid=nogroup` on Debian when its system has no group named `nobody`. This uses the existing group and preserves native authentication. Install a stable entrypoint with:
-
-```sh
-mkdir -p ~/.config/cpa ~/.local/bin
-cp deployment/mac/scripts/launch_antigravity.py ~/.config/cpa/launch-antigravity.py
-agy_native="$(mise where http:antigravity-acp@1.3.0)/agy_acp_server.par"
-python3 - "$agy_native" <<'PY'
-from pathlib import Path
-import shlex
-import sys
-command = [sys.executable, str(Path.home()/'.config/cpa/launch-antigravity.py'), sys.argv[1]]
-path = Path.home()/'.local/bin/antigravity-acp'
-path.write_text('#!/bin/sh\nexec ' + shlex.join(command) + ' "$@"\n')
-path.chmod(0o700)
-PY
-```
+Antigravity's standalone mise installation passed protocol initialization but failed practical use in T3. Keep its Binary path empty and use T3's Install and Sign in controls. The user's working Debian T3 installation replaces the retired mise copy. Native Antigravity account configuration remains a private, machine-local exception.
 
 On an existing CPA client, seed any missing harness configurations and register the installed native paths. This requires the machine's existing Personal/Work downstream keys. It does not copy upstream credentials or histories.
 
@@ -59,6 +44,25 @@ cpa-catalog-sync --apply
 Mac uses `/Users/smaluk/Library/Application Support/Agent Profiles`; Debian uses `/home/smaluk/.config/cpa/profiles`. Keep the proxy command directory `~/.config/cpa/bin` first on PATH. `--no-modify-path` prevents the bare installer from placing its native binary ahead of those commands. Native Cursor and Antigravity keep their own account authentication. Registering a new T3 provider instance is separate from installing its CLI.
 
 The same procedure is ready for offline Mac/Linux clients when they return. Native Windows still needs a scheduling adapter; the current proxy client installer works inside WSL.
+
+## Register T3 providers
+
+After the proxy client has created both scoped wrappers, register Personal/Work instances for Codex, Claude, OpenCode and Pi. Existing scoped homes and instance customizations are preserved. An unexpected wrapper or HOME stops the operation rather than moving histories. The helper enables native Cursor and T3-managed Antigravity as the agreed exceptions, without copying OAuth tokens or credentials into the shared policy.
+
+```sh
+python3 deployment/mac/scripts/configure_t3_providers.py \
+  --profiles "$profiles" \
+  --cursor-binary "$(mise where cursor-agent@2026.10.01-e373342)/dist-package/cursor-agent" \
+  --t3-antigravity --apply
+python3 deployment/mac/scripts/install_remote_sync.py \
+  --profiles "$profiles" --endpoint "$endpoint" --proxy-only \
+  --t3-pi-profiles --t3-opencode-services
+cpa-catalog-sync --apply
+```
+
+T3's file watcher loads the instance definitions. Its provider model caches require an explicit provider refresh after replacing a binary behind an unchanged wrapper. Refresh the affected provider in T3 before reviewing its model menu. OpenCode's service connections are loopback-only and retain their existing passwords. Claude custom menus update with the scheduled scoped catalog job. Existing T3 userdata symlinks resolve to their current storage target, while writes retain ownership and concurrent-edit checks.
+
+Use T3's native login for Cursor and Personal Antigravity on each machine. Native Work Antigravity uses its Agent Platform configuration. During the October 7 setup, Debian received the user's existing Work API configuration privately over SSH. Those credentials are excluded from shared settings and comparison reports. Cursor inside Pi remains Personal-only on the Mac that already owns its SDK login; no Cursor login is copied to Work Pi or to a new machine.
 
 ## Update an existing proxy client
 

@@ -241,7 +241,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
 
 def t3_claude_targets(root, snapshots, settings_path=None, authoritative=False):
     """Refresh only existing profile-owned Claude instance menus, preserving overrides."""
-    path = settings_path or Path.home() / '.t3/userdata/settings.json'
+    path = (settings_path or Path.home() / '.t3/userdata/settings.json').resolve()
     before = path.read_bytes()
     document = json.loads(before)
     for snapshot in snapshots.values():
@@ -356,7 +356,7 @@ def main():
             phase('prepare-t3-claude', scope=None)
             current = t3_claude_targets(root, snapshots, authoritative=settings.get('authoritative_catalog') is True)
             changes.update(current)
-            extra_paths.add(Path.home() / '.t3/userdata/settings.json')
+            extra_paths.add((Path.home() / '.t3/userdata/settings.json').resolve())
         phase('validate-targets', scope=None)
         catalogs.validate_targets(changes, root, forbidden, extra_paths)
         backup = None

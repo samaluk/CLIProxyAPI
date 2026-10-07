@@ -235,7 +235,7 @@ def t3_pi_targets(root, endpoint, binaries, settings_path=None):
     Configs and T3 settings join the installer's guarded, backed-up transaction.
     Existing scoped instance overrides and unrelated packages are preserved.
     """
-    settings_path = settings_path or Path.home() / '.t3/userdata/settings.json'
+    settings_path = (settings_path or Path.home() / '.t3/userdata/settings.json').resolve()
     before = settings_path.read_bytes()
     settings = json.loads(before)
     instances = settings.setdefault('providerInstances', {})
