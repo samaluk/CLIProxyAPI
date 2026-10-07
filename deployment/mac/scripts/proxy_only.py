@@ -99,7 +99,8 @@ def default_home_targets(root, settings, prepared=None, home=None, snapshots=Non
         updated = provider_config(raw, scope, endpoint, key, catalog_path, model).decode()
         if 'model_reasoning_effort' in scoped:
             updated = root_values(updated, {'model_reasoning_effort': scoped['model_reasoning_effort']})
-        limits = {k: v for k, v in scoped.get('agents', {}).items() if k in ('max_threads', 'max_depth')}
+        limits = {k: v for k, v in scoped.get('agents', {}).items()
+                  if k in ('max_threads', 'max_concurrent_threads_per_session', 'max_depth')}
         if limits:
             import harness_settings
             updated = harness_settings.agents(updated, limits)

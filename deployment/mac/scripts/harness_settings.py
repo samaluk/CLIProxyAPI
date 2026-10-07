@@ -4,6 +4,7 @@ No provider credentials, prompts, commands or permission grants are accepted.
 Unsupported settings remain visible in the report instead of being invented.
 """
 import argparse
+import copy
 import json
 from pathlib import Path
 import re
@@ -27,9 +28,11 @@ def validate(value):
     if codex['model_reasoning_effort'] not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
         raise ValueError('Invalid Codex reasoning effort')
     agents_value = codex['agents']
-    if not isinstance(agents_value, dict) or set(agents_value) != {'max_threads', 'max_depth'}:
+    canonical = 'max_concurrent_threads_per_session'
+    if not isinstance(agents_value, dict) or set(agents_value) not in (
+            {canonical, 'max_depth'}, {'max_threads', 'max_depth'}):
         raise ValueError('Unknown Codex agent settings')
-    capacity = agents_value['max_threads']
+    capacity = agents_value.get(canonical, agents_value.get('max_threads'))
     if capacity is not None and (type(capacity) is not int or not 1 <= capacity <= 64):
         raise ValueError('Invalid native subagent capacity')
     if type(agents_value['max_depth']) is not int or not 1 <= agents_value['max_depth'] <= 8:
@@ -51,6 +54,9 @@ def validate(value):
         raise ValueError('Invalid Pi shared setting')
     if not isinstance(pi['compaction'], dict) or set(pi['compaction']) != {'enabled'} or type(pi['compaction']['enabled']) is not bool:
         raise ValueError('Invalid Pi compaction setting')
+    value = copy.deepcopy(value)
+    value['harnesses']['codex']['agents'].pop('max_threads', None)
+    value['harnesses']['codex']['agents'][canonical] = capacity
     return value
 
 
@@ -79,12 +85,20 @@ def load(root, settings):
 
 
 def agents(raw, values):
+    values = dict(values)
+    canonical = 'max_concurrent_threads_per_session'
+    if 'max_threads' in values:
+        values.setdefault(canonical, values.pop('max_threads'))
     pattern = r'(?ms)(^\[agents\]\s*\n)(.*?)(?=^\[|\Z)'
     def update(match):
         body = match[2]
+        if canonical in values or re.search(r'(?m)^[ \t]*' + canonical + r'\s*=', body):
+            body = re.sub(r'(?m)^[ \t]*max_threads\s*=.*\n?', '', body)
+        else:
+            body = re.sub(r'(?m)^([ \t]*)max_threads(\s*=)', r'\1' + canonical + r'\2', body)
         for name, value in values.items():
             line = name + ' = ' + json.dumps(value)
-            body, count = re.subn(r'(?m)^' + name + r'\s*=.*$', lambda _: line, body)
+            body, count = re.subn(r'(?m)^[ \t]*' + name + r'\s*=.*$', lambda _: line, body)
             if not count:
                 body = body.rstrip() + '\n' + line + '\n'
         return match[1] + body
