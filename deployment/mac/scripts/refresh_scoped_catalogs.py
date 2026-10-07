@@ -17,6 +17,7 @@ SCOPES = ('personal', 'work')
 CAP_FIELDS = ('canonical_model_id', 'context_window', 'max_context_window', 'max_tokens', 'max_output_tokens', 'max_completion_tokens', 'input_modalities', 'supported_input_modalities', 'output_modalities', 'default_reasoning_level', 'supported_reasoning_levels', 'visibility', 'supports_parallel_tool_calls', 'supports_image_detail_original', 'support_verbosity')
 CODEX_FIELDS = ('context_window', 'max_context_window', 'max_tokens', 'input_modalities', 'default_reasoning_level', 'supported_reasoning_levels', 'service_tiers', 'additional_speed_tiers', 'supports_parallel_tool_calls', 'supports_image_detail_original', 'support_verbosity')
 PI_FIELDS = ('reasoning', 'input', 'contextWindow', 'maxTokens', 'thinkingLevelMap')
+PI_THINKING_LEVELS = ('off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')
 EFFORTS = ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')
 PROMPT_FIELDS = ('base_instructions', 'model_messages', 'include_apps_usage_instructions', 'include_plugin_usage_instructions', 'include_skills_usage_instructions')
 TIER_NAMES = {'default': 'Standard', 'auto': 'Automatic', 'priority': 'Fast', 'fast': 'Fast', 'ultrafast': 'Ultrafast', 'flex': 'Flex'}
@@ -228,6 +229,34 @@ def opencode_update(document, live, scope, *, major_version=1):
                 else: options.pop('reasoningEffort', None)
     return result
 
+def pi_model_map(live):
+    """Render gateway metadata without depending on an npm-based Pi runtime."""
+    models = []
+    for declared in live.values():
+        route = declared['slug'].strip()
+        if not route or str(declared.get('visibility', '')).lower() == 'hide':
+            continue
+        supported = set(efforts(declared))
+        inputs = list(dict.fromkeys(str(value).strip().lower()
+                      for value in declared.get('input_modalities', [])
+                      if str(value).strip().lower() in ('text', 'image')))
+        if 'text' not in inputs:
+            inputs.insert(0, 'text')
+        context = next((declared[key] for key in ('context_window', 'max_context_window')
+                        if isinstance(declared.get(key), int) and declared[key] > 0), 128000)
+        model = {'id': route, 'name': route, 'reasoning': bool(supported - {'none'}),
+                 'input': inputs, 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0},
+                 'contextWindow': context, 'maxTokens': output_limit(declared) or 16384}
+        if supported:
+            model['thinkingLevelMap'] = {
+                level: ('none' if 'none' in supported else None) if level == 'off'
+                else level if level in supported else None
+                for level in (*PI_THINKING_LEVELS, 'ultra')
+            }
+        models.append(model)
+    return models
+
+
 def stock_pi_map(profile, live, executable=None):
     package = profile / 'pi/npm/node_modules/@router-for-me/pi-cliproxyapi-provider'
     info = read(package / 'package.json')
@@ -267,7 +296,7 @@ def pi_update(document, mapped, live):
     # Missing non-retired routes stay cached, matching stock provider retention.
     return result
 
-def pi_native_update(document, cache, scope, endpoint):
+def pi_native_update(document, cache, scope, endpoint, authoritative=False):
     """Use scoped native Responses definitions instead of combined discovery.
 
     Retain saved in-scope IDs, overrides and capabilities. Never register the
@@ -294,7 +323,7 @@ def pi_native_update(document, cache, scope, endpoint):
             # Deliberate custom names and unrelated override fields stay.
             override.pop('name')
         models.append(model)
-    if not models:
+    if not models and not authoritative:
         raise ValueError('Empty native Pi scope; retain saved configuration')
     provider.update(name='CPA ' + scope.title(), api='openai-responses',
                     apiKey='${CPA_API_KEY}', baseUrl=endpoint + '/v1', models=models)

@@ -22,6 +22,7 @@ import urllib.parse
 import urllib.request
 
 import refresh_scoped_catalogs as catalogs
+import harness_settings
 from model_labels import model_label
 
 
@@ -92,7 +93,7 @@ def origin(value):
     return value.rstrip('/')
 
 
-def fetch(endpoint, key, scope, cached=None):
+def fetch(endpoint, key, scope, cached=None, authoritative=False):
     headers = {'Authorization': 'Bearer ' + key}
     identity = hashlib.sha256((origin(endpoint) + '\n' + scope + '\n' + key).encode()).hexdigest()
     if cached and cached.get('client_identity') != identity:
@@ -115,7 +116,7 @@ def fetch(endpoint, key, scope, cached=None):
     if result.get('schema') != 1 or result.get('scope') != scope or not re.fullmatch('[0-9a-f]{64}', result.get('revision', '')):
         raise ValueError('Catalog identity/schema mismatch')
     models = result.get('models')
-    if not isinstance(models, list) or not models:
+    if not isinstance(models, list) or (not models and not authoritative):
         raise ValueError('Empty catalog; retain saved definitions')
     seen = set()
     for model in models:
@@ -148,12 +149,13 @@ def codex_endpoint(raw, endpoint):
     return result
 
 
-def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=None, pi_native=False):
+def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=None, pi_native=False, authoritative=False):
     profile = root / scope
-    live = {m['slug']: catalogs.safe_model(m) for m in snapshot['models']}
+    live = {m['slug']: catalogs.safe_model(m) for m in snapshot['models']
+            if not authoritative or m.get('visibility') != 'hide'}
     # Explicit null clears an unsupported generic reasoning default.
     for m in snapshot['models']:
-        if 'default_reasoning_level' in m and m['default_reasoning_level'] is None:
+        if m['slug'] in live and 'default_reasoning_level' in m and m['default_reasoning_level'] is None:
             live[m['slug']]['default_reasoning_level'] = None
     changes = {}
     pending = []
@@ -171,6 +173,8 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
     path = profile / 'catalogs/codex-catalog.json'
     if path.exists():
         before = catalogs.read(path)
+        if authoritative:
+            before['models'] = [m for m in before['models'] if m['slug'] in live]
         template_path = root / 'codex-desktop/trusted-templates.json'
         templates = catalogs.read(template_path) if template_path.is_file() else {'models': []}
         if trust_templates:
@@ -187,6 +191,8 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         for model in updated['models']:
             if model['slug'].startswith(scope + '/'):
                 model['display_name'] = model_label(model['slug'], live.get(model['slug'], {}).get('canonical_model_id'))
+                if authoritative:
+                    model['visibility'] = 'list'
         prepare(path, catalogs.encoded(updated))
     path = profile / 'codex/config.toml'
     if path.exists():
@@ -195,7 +201,15 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
     if path.exists():
         binary = (binaries or {}).get('opencode')
         major = catalogs.opencode_major_version(binary)
-        updated = catalogs.opencode_update(catalogs.read(path), live, scope, major_version=major)
+        before = catalogs.read(path)
+        if authoritative:
+            provider_id = 'cpa-' + scope
+            before['provider'] = {provider_id: before['provider'][provider_id]}
+            before['enabled_providers'] = [provider_id]
+            before['provider'][provider_id]['models'] = {
+                route: model for route, model in before['provider'][provider_id].get('models', {}).items()
+                if route in live}
+        updated = catalogs.opencode_update(before, live, scope, major_version=major)
         provider = updated['provider']['cpa-' + scope]
         provider.setdefault('options', {})['baseURL'] = endpoint + '/v1'
         for route, model in provider['models'].items():
@@ -203,15 +217,19 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         prepare(path, catalogs.encoded(updated))
     path = profile / 'pi/cliproxyapi-models.json'
     if path.exists():
-        mapper, _, _ = catalogs.stock_pi_map(profile, live, (binaries or {}).get('pi'))
-        updated = catalogs.pi_update(catalogs.read(path), mapper, live)
+        mapper = catalogs.pi_model_map(live)
+        before = catalogs.read(path)
+        if authoritative:
+            before['models'] = [m for m in before['models'] if m['id'] in live]
+            before['fastModelIds'] = [route for route in before.get('fastModelIds', []) if route in live]
+        updated = catalogs.pi_update(before, mapper, live)
         for model in updated['models']:
             if model['id'].startswith(scope + '/'):
                 model['name'] = model_label(model['id'], live.get(model['id'], {}).get('canonical_model_id'))
         prepare(path, catalogs.encoded(updated))
         if pi_native:
             native_path = profile / 'pi/models.json'
-            native = catalogs.pi_native_update(catalogs.read(native_path), updated, scope, endpoint)
+            native = catalogs.pi_native_update(catalogs.read(native_path), updated, scope, endpoint, authoritative)
             prepare(native_path, catalogs.encoded(native))
     path = profile / 'pi/cliproxyapi.json'
     if path.exists():
@@ -221,7 +239,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
     return changes, pending
 
 
-def t3_claude_targets(root, snapshots, settings_path=None):
+def t3_claude_targets(root, snapshots, settings_path=None, authoritative=False):
     """Refresh only existing profile-owned Claude instance menus, preserving overrides."""
     path = settings_path or Path.home() / '.t3/userdata/settings.json'
     before = path.read_bytes()
@@ -232,8 +250,13 @@ def t3_claude_targets(root, snapshots, settings_path=None):
         if not instance or instance.get('driver') != 'claudeAgent' or instance.get('config', {}).get('binaryPath') != str(root / scope / 'bin/claude'):
             raise ValueError('T3 Claude instance is not owned by the scoped profile')
         models = instance['config'].setdefault('customModels', [])
+        if authoritative:
+            allowed = {m['slug'] for m in snapshot['models'] if m.get('visibility') != 'hide'}
+            models[:] = [m for m in models if (m if isinstance(m, str) else m['slug']) in allowed]
         positions = {(m if isinstance(m, str) else m['slug']): i for i, m in enumerate(models)}
         for fresh in snapshot['models']:
+            if authoritative and fresh.get('visibility') == 'hide':
+                continue
             route = fresh['slug']
             if not route.startswith(scope + '/'):
                 raise ValueError('Foreign route in T3 Claude catalog')
@@ -258,20 +281,30 @@ def main():
     root = args.profiles.expanduser().resolve()
     phase('read-settings', root=root, scope=None)
     settings = catalogs.read(root / 'gateway.json')
-    # Scheduled jobs have a minimal environment. Use the path recorded during
-    # installation so the installed stock Pi mapper can locate Pi and Bun.
+    shared_policy = None
+    policy_state = 'not enabled'
+    policy_change = None
+    if settings.get('shared_settings') is True:
+        phase('read-shared-settings')
+        shared_policy, policy_state, policy_change = harness_settings.load(root, settings)
+    # Scheduled jobs have a minimal environment. Preserve the recorded tool path
+    # for client version checks and service reconciliation.
     if settings.get('runtime_path'):
         os.environ['PATH'] = settings['runtime_path']
     endpoint = origin(settings['endpoint'])
     state = root / 'sync-state'; state.mkdir(mode=0o700, exist_ok=True)
     phase('protect-main-codex')
     main_config = Path.home() / '.codex/config.toml'
-    forbidden = [main_config]
+    manage_default = settings.get('proxy_only') is True and settings.get('manage_default_homes') is True
+    forbidden = [] if manage_default else [main_config]
     if main_config.exists():
         active = tomllib.loads(main_config.read_text()).get('model_catalog_json')
         if active:
             path = Path(active).expanduser()
-            forbidden.append(path if path.is_absolute() else main_config.parent / path)
+            path = path if path.is_absolute() else main_config.parent / path
+            managed = {root / scope / 'catalogs/codex-catalog.json' for scope in ('personal', 'work')}
+            if not (settings.get('proxy_only') is True and path in managed):
+                forbidden.append(path)
     protected = {p: p.read_bytes() for p in forbidden if p.exists()}
     with (state / 'lock').open('a') as lock:
         try:
@@ -287,9 +320,9 @@ def main():
             cache_path = state / (scope + '.json')
             cache = catalogs.read(cache_path) if cache_path.exists() else None
             phase('fetch-catalog', scope=scope)
-            snapshot = fetch(endpoint, key_path.read_text().strip(), scope, cache)
+            snapshot = fetch(endpoint, key_path.read_text().strip(), scope, cache, settings.get('authoritative_catalog') is True)
             phase('prepare-profile')
-            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'), settings.get('pi_native_catalog') is True)
+            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'), settings.get('pi_native_catalog') is True, settings.get('authoritative_catalog') is True)
             changes.update(current); snapshots[cache_path] = snapshot
             receipts.append({'scope': scope, 'revision': snapshot['revision'], 'modelCount': len(snapshot['models']),
                              'deferred': snapshot.get('deferred', []), 'missingTrustedTemplates': pending})
@@ -297,9 +330,31 @@ def main():
             raise ValueError('No scoped profile keys installed')
         extra_paths = {root / scope / relative for scope in ('personal', 'work')
                        for relative in ('codex/config.toml', 'pi/cliproxyapi.json', 'pi/models.json', 'catalogs/handy-models.json')}
+        if shared_policy is not None:
+            phase('project-shared-settings', scope=None)
+            current = harness_settings.project(root, shared_policy, changes)
+            changes.update(current)
+            extra_paths.update(current)
+            if policy_change:
+                changes[root / 'shared-settings.json'] = policy_change
+                extra_paths.add(root / 'shared-settings.json')
+        if manage_default:
+            phase('prepare-default-homes', scope=None)
+            import proxy_only
+            targets = proxy_only.default_home_targets(root, settings, changes, snapshots=snapshots)
+            for path, target in targets.items():
+                after = target[0]
+                if after is None:
+                    # Credential-file retirement happens during installation;
+                    # the ordinary catalog transaction only writes files.
+                    raise ValueError('Direct credential file reappeared; reinstall proxy-only configuration')
+                before = path.read_bytes()
+                if before != after:
+                    changes[path] = {'before': before, 'after': after}
+                extra_paths.add(path)
         if settings.get('t3_claude_profiles') is True:
             phase('prepare-t3-claude', scope=None)
-            current = t3_claude_targets(root, snapshots)
+            current = t3_claude_targets(root, snapshots, authoritative=settings.get('authoritative_catalog') is True)
             changes.update(current)
             extra_paths.add(Path.home() / '.t3/userdata/settings.json')
         phase('validate-targets', scope=None)
@@ -321,7 +376,9 @@ def main():
         if any(p.read_bytes() != raw for p, raw in protected.items()):
             raise ValueError('Main Codex changed externally during reconciliation')
         result = {'checkedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'mode': 'apply' if args.apply else 'preview',
-                  'changedFiles': len(changes), 'profiles': receipts, 'backup': backup, 'mainCodexUntouched': True}
+                  'changedFiles': len(changes), 'profiles': receipts, 'backup': backup,
+                  'mainCodexUntouched': main_config not in changes, 'defaultHomesManaged': manage_default}
+        result['sharedSettings'] = {'source': policy_state, 'configured': shared_policy}
         if services is not None:
             result['opencode'] = services
         phase('publish-status')

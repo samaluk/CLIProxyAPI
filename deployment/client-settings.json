@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "harnesses": {
+    "codex": {
+      "model_reasoning_effort": "medium",
+      "agents": {
+        "max_threads": null,
+        "max_depth": 2
+      }
+    },
+    "claude": {
+      "effortLevel": "medium",
+      "autoCompactEnabled": false
+    },
+    "opencode": {
+      "autoupdate": false,
+      "share": "disabled",
+      "permission": "ask"
+    },
+    "pi": {
+      "defaultThinkingLevel": "high",
+      "hideThinkingBlock": true,
+      "compaction": {
+        "enabled": false
+      }
+    }
+  }
+}

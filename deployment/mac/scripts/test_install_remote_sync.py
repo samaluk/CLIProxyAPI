@@ -12,6 +12,29 @@ import launch_harness
 
 
 class InstallTests(unittest.TestCase):
+    def test_proxy_only_install_has_no_prompt_and_preserves_work_inheritance(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home=Path(folder).resolve();root=self.fixture(home)
+            path=root/'personal/codex/config.toml';path.parent.mkdir(parents=True)
+            path.write_text('model="personal/codex-oauth/fixture"\n[model_providers.cpa-personal]\nbase_url="https://old.invalid/v1"\nrequires_openai_auth=false\n')
+            path=root/'personal/catalogs/codex-catalog.json';path.parent.mkdir(parents=True)
+            path.write_text('{"models":[{"slug":"personal/codex-oauth/fixture"}]}')
+            with patch.object(Path,'home',return_value=home):
+                installer.install(root,'https://nas.example',{'codex':sys.executable},False,proxy_only=True)
+                installer.install(root,'https://nas.example',{},False)
+            settings=json.loads((root/'gateway.json').read_text())
+            self.assertFalse(settings['pi_selector'])
+            self.assertTrue(settings['authoritative_catalog'])
+            self.assertEqual(settings['entrypoint_mode'],'personal_default')
+            wrapper=(home/'.local/bin/codex').read_text()
+            self.assertIn('${AGENT_PROFILE:-personal}',wrapper)
+            self.assertNotIn('select-pi',wrapper)
+            self.assertEqual(json.loads((home/'.codex/auth.json').read_text()),{'OPENAI_API_KEY':'fixture-downstream-key'})
+            import tomllib
+            config=tomllib.loads((root/'personal/codex/config.toml').read_text())
+            self.assertTrue(config['model_providers']['cpa-personal']['requires_openai_auth'])
+            self.assertEqual(config['agents']['max_depth'],2)
+
     def test_pi_selector_cannot_be_its_own_native_binary(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve(); root = self.fixture(home)

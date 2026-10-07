@@ -9,6 +9,14 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 
+MODEL_CREDENTIAL_PREFIXES = (
+    'OPENAI_', 'AZURE_OPENAI_', 'ANTHROPIC_', 'GEMINI_', 'GOOGLE_API_',
+    'GROQ_', 'CEREBRAS_', 'XAI_', 'FIREWORKS_', 'TOGETHER_', 'BASETEN_',
+    'OPENROUTER_', 'AI_GATEWAY_', 'ZAI_', 'MISTRAL_', 'MINIMAX_',
+    'MOONSHOT_', 'KIMI_', 'META_API_', 'QWEN_TOKEN_', 'XIAOMI_', 'DEEPSEEK_',
+    'NVIDIA_API_', 'ANT_LING_', 'COMMANDCODE_', 'CURSOR_',
+)
+
 def gateway_settings():
     settings = json.loads((ROOT / 'gateway.json').read_text())
     # This file is installed by the administrator; never derive origins or
@@ -31,6 +39,16 @@ def main():
     if not key:
         sys.exit('Missing profile key; refusing to launch')
     env = dict(os.environ)
+    if settings.get('proxy_only') is True:
+        arguments = sys.argv[3:]
+        if arguments[:1] == ['login'] or arguments[:2] == ['auth', 'login']:
+            sys.exit('Provider login belongs on the proxy; this harness only uses its scoped gateway key.')
+        cursor_exception = scope == 'personal' and harness == 'pi' and settings.get('pi_cursor_personal') is True
+        for name in list(env):
+            if name.startswith(MODEL_CREDENTIAL_PREFIXES) and not (cursor_exception and name.startswith('CURSOR_')):
+                env.pop(name, None)
+            elif name in ('AWS_BEARER_TOKEN_BEDROCK', 'GOOGLE_APPLICATION_CREDENTIALS'):
+                env.pop(name, None)
     # Prevent inherited login/provider settings from selecting a different
     # upstream. Project settings and deliberate absolute paths are not sandboxed.
     # T3 generates a per-process password for its local OpenCode server.
@@ -100,6 +118,14 @@ def main():
         if not config.exists():
             sys.exit('OpenCode profile has not been configured yet; refusing to use a legacy configuration')
         env['OPENCODE_CONFIG'] = str(config)
+    if harness == 'pi':
+        # The shared native Pi installation is selected by mise, independently
+        # of the profile's settings, credentials and sessions.
+        env['MISE_CONFIG_DIR'] = str(Path.home() / '.config/mise')
+        env['MISE_DATA_DIR'] = str(Path.home() / '.local/share/mise')
+    if settings.get('proxy_only') is True:
+        env['CPA_PROXY_ONLY'] = '1'
+        env['CPA_PROXY_SCOPE'] = scope
     binary = settings['binaries'][harness]
     if not Path(binary).is_absolute():
         sys.exit('Harness binary must be an absolute path')
