@@ -78,7 +78,7 @@ class OpenCodeServicesTests(unittest.TestCase):
                     if scope == 'work' and fail: raise ValueError('reload failed')
                     return ''
                 self.fail('Unexpected command')
-            with patch.object(services, 'command', side_effect=command), patch.object(services, 'settled_models', return_value=1):
+            with patch.object(services, 'command', side_effect=command), patch.object(services, 'settled_models', return_value=1), patch.object(services.catalogs, 'opencode_major_version', return_value=2):
                 with self.assertRaises(ValueError): services.reconcile(root, {}, path)
                 self.assertEqual(path.read_bytes(), before)
                 self.assertFalse((root / 'sync-state/opencode-services.json').exists())

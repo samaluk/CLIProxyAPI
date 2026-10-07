@@ -4,8 +4,7 @@ codex = "0.160.1"
 claude-code = "2.1.292"
 pi = "1.0.4"
 cursor-agent = "2026.10.01-e373342"
-# OpenCode 2 is published as this npm package, not the mise OpenCode 1 entry.
-"npm:@opencode-ai/cli" = "0.0.0-beta-19271"
+# OpenCode 2 uses its official bare installer. See PROXY-ONLY-CLIENTS.md.
 
 [tools."http:antigravity-acp"]
 version = "1.3.0"

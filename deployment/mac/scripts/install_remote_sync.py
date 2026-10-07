@@ -308,6 +308,8 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
                       default_proxy_scope=config.get('default_proxy_scope', 'personal'),
                       pi_cursor_personal=cursor_pi_personal, entrypoint_mode='personal_default', pi_selector=False,
                       shared_settings=True)
+        if 'pi' in binaries:
+            config['pi_native_catalog'] = True
         pi_selector = False
     if shared_settings_url is not None:
         config['shared_settings_url'] = shared_settings_url

@@ -2,6 +2,66 @@
 
 The gateway is the model source and the owner of upstream subscription/API credentials. Managed harnesses receive only their scoped downstream gateway key. Successful catalog snapshots remove saved routes that the proxy no longer advertises. Failed refreshes retain the last proxy catalog. These are configuration controls for ordinary launches, not an OS sandbox.
 
+## Install the native tools
+
+Run from a reviewed checkout on each Mac or Linux machine with mise and Python 3.11+ installed. Install Codex, Claude Code, Pi, Cursor Agent and Antigravity ACP through the shared mise manifest. Install OpenCode 2 through its official bare installer, pinned to the stable version used by the T3 services.
+
+```sh
+mkdir -p ~/.config/mise/conf.d
+cp deployment/harnesses.mise.toml ~/.config/mise/conf.d/cpa-harnesses.toml
+mise trust ~/.config/mise/conf.d/cpa-harnesses.toml
+mise install codex@0.160.1 claude-code@2.1.292 pi@1.0.4 \
+  cursor-agent@2026.10.01-e373342 http:antigravity-acp@1.3.0
+curl -fsSL https://opencode.ai/v2/install -o /tmp/cpa-opencode2-install.sh
+bash /tmp/cpa-opencode2-install.sh --version 2.0.24 --no-modify-path
+~/.opencode/bin/opencode --version
+```
+
+The result must be `opencode v2.0.24`. The `/install` URL and mise's `opencode` entry install OpenCode 1. The old `@opencode-ai/cli` prerelease lacks the service `reload` command required here. Do not select it for these profiles. Existing unused installations can remain while a process still owns them.
+
+Antigravity's native ACP binary is `$(mise where http:antigravity-acp@1.3.0)/agy_acp_server.par`. `launch_antigravity.py` adds `--gid=nogroup` on Debian when its system has no group named `nobody`. This uses the existing group and preserves native authentication. Install a stable entrypoint with:
+
+```sh
+mkdir -p ~/.config/cpa ~/.local/bin
+cp deployment/mac/scripts/launch_antigravity.py ~/.config/cpa/launch-antigravity.py
+agy_native="$(mise where http:antigravity-acp@1.3.0)/agy_acp_server.par"
+python3 - "$agy_native" <<'PY'
+from pathlib import Path
+import shlex
+import sys
+command = [sys.executable, str(Path.home()/'.config/cpa/launch-antigravity.py'), sys.argv[1]]
+path = Path.home()/'.local/bin/antigravity-acp'
+path.write_text('#!/bin/sh\nexec ' + shlex.join(command) + ' "$@"\n')
+path.chmod(0o700)
+PY
+```
+
+On an existing CPA client, seed any missing harness configurations and register the installed native paths. This requires the machine's existing Personal/Work downstream keys. It does not copy upstream credentials or histories.
+
+```sh
+profiles=/absolute/path/to/profiles
+endpoint=https://YOUR-GATEWAY.YOUR-TAILNET.ts.net
+codex_native="$(mise where codex@0.160.1)/bin/codex"
+claude_native="$(mise where claude-code@2.1.292)/claude"
+pi_native="$(mise where pi@1.0.4)/pi/pi"
+python3 deployment/mac/scripts/provision_harness_profiles.py \
+  --profiles "$profiles" --endpoint "$endpoint" --apply \
+  --binary "codex=$codex_native" --binary "claude=$claude_native" \
+  --binary "pi=$pi_native" --binary "opencode=$HOME/.opencode/bin/opencode"
+python3 deployment/mac/scripts/install_remote_sync.py \
+  --profiles "$profiles" --endpoint "$endpoint" --proxy-only \
+  --binary "codex=$codex_native" --binary "claude=$claude_native" \
+  --binary "pi=$pi_native" --binary "opencode=$HOME/.opencode/bin/opencode" \
+  --shared-settings-url https://raw.githubusercontent.com/samaluk/CLIProxyAPI/deployment/proxy-authoritative-clients/deployment/client-settings.json
+cpa-catalog-sync --apply
+```
+
+Mac uses `/Users/smaluk/Library/Application Support/Agent Profiles`; Debian uses `/home/smaluk/.config/cpa/profiles`. Keep the proxy command directory `~/.config/cpa/bin` first on PATH. `--no-modify-path` prevents the bare installer from placing its native binary ahead of those commands. Native Cursor and Antigravity keep their own account authentication. Registering a new T3 provider instance is separate from installing its CLI.
+
+The same procedure is ready for offline Mac/Linux clients when they return. Native Windows still needs a scheduling adapter; the current proxy client installer works inside WSL.
+
+## Update an existing proxy client
+
 Install on an existing managed Mac or Linux client with its real profile root and gateway origin:
 
 ```sh
@@ -33,7 +93,9 @@ The policy has a separate baseline for each harness. Comparison is **the same ha
 
 `cpa-harness-settings --ssh debian-dev` groups the local and remote Personal/Work configurations under each harness. Exported reports can also be combined with `--compare /path/to/report.json`. Differences from a harness's own baseline are listed as drift. Reports include configured values, not a claim about project/session overrides or runtime-equivalent behavior.
 
-Codex's `agents.max_threads` is `null` in the baseline, preserving its current capacity choice. Set an integer from 1 to 64 to sync that Codex control across its profiles and machines. The installed Codex accepts that legacy alias; newer documentation names it `max_concurrent_threads_per_session`. Its initial `max_depth` is `2`, matching the pre-existing default-home preference. Native subagent limits and T3-owned delegated task limits are separate. Other harnesses retain their own settings schema and may gain additional reviewed settings later.
+Codex's `agents.max_concurrent_threads_per_session` is `15` in the baseline. This allows fifteen concurrent native subagents per session, excluding the primary agent. Set an integer from 1 to 64 to sync that Codex control across its profiles and machines. `max_threads` is a legacy alias for the same field. Writing both makes Codex Desktop reject the configuration; the adapter migrates older policies and removes that alias from managed configs. Its `max_depth` is `2`, matching the pre-existing default-home preference. Native subagent limits and T3-owned delegated task limits are separate. Other harnesses retain their own settings schema and may gain additional reviewed settings later.
+
+For this deployment, edit `deployment/client-settings.json` on branch `deployment/proxy-authoritative-clients` in `samaluk/CLIProxyAPI`. Review the diff, commit and push that file. Every managed client fetches its raw JSON URL every five minutes. Run `cpa-catalog-sync --apply` on a client to apply it immediately. Native config files and `<profiles>/shared-settings.json` are generated copies; edits to their managed fields will be replaced by the next sync. Start a new native session to load a changed capacity limit.
 
 Permission grants, hooks, prompts and tools remain outside this narrow policy. A broader T3 UI should distinguish shared intent, verified per-version mappings, explicit overrides, project overrides and unsupported controls. Copying raw JSON/TOML values between harnesses is not evidence of equivalent behavior.
 

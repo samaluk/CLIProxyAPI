@@ -57,6 +57,27 @@ class InstallTests(unittest.TestCase):
                     installer.install(root, 'https://nas.example', {'pi': str(entry)}, False, True)
             self.assertFalse((root/'gateway.json').exists())
 
+    def test_proxy_pi_catalog_sync_does_not_require_t3_instances(self):
+        import remote_sync
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); root = self.fixture(home)
+            profile = root / 'personal/pi'; profile.mkdir()
+            (profile/'settings.json').write_text('{"packages":[]}')
+            (profile/'models.json').write_text('{"providers":{"cliproxyapi":{"models":[]}}}')
+            (profile/'cliproxyapi-models.json').write_text('{"models":[]}')
+            with patch.object(Path, 'home', return_value=home):
+                installer.install(root, 'https://nas.example', {'pi':sys.executable}, False, proxy_only=True)
+                installer.install(root, 'https://nas.example', {}, False)
+            settings = json.loads((root/'gateway.json').read_text())
+            self.assertFalse(settings.get('t3_pi_profiles', False))
+            self.assertFalse((home/'.t3/userdata/settings.json').exists())
+            snapshot = {'models':[{'slug':'personal/codex-oauth/fixture'}]}
+            changes, _ = remote_sync.prepare_profile(root, 'personal', snapshot, 'https://nas.example',
+                False, settings['binaries'], settings.get('pi_native_catalog') is True, True)
+            native = json.loads(changes[profile/'models.json']['after'])
+            self.assertEqual([m['id'] for m in native['providers']['cliproxyapi']['models']],
+                             ['personal/codex-oauth/fixture'])
+
     def test_pi_selector_survives_reinstallation(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder).resolve(); root = self.fixture(home)
