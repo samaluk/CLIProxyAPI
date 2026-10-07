@@ -166,7 +166,12 @@ def opencode_major_version(binary=None):
                                 stderr=subprocess.DEVNULL, text=True, timeout=15)
     except (OSError, subprocess.TimeoutExpired):
         raise ValueError('Could not determine installed OpenCode version') from None
-    match = re.search(r'^(?:opencode\s+)?v?(\d+)\.\d+\.\d+(?:[-+][^\s]+)?\s*$', result.stdout.strip())
+    output = result.stdout.strip()
+    # The official OpenCode 2 npm CLI uses a prerelease package version,
+    # independently of OpenCode 1's stable release numbering.
+    if not result.returncode and re.fullmatch(r'opencode2 v?0\.0\.0-(?:beta|dev)-\d+', output):
+        return 2
+    match = re.search(r'^(?:opencode(?:2)?\s+)?v?(\d+)\.\d+\.\d+(?:[-+][^\s]+)?\s*$', output)
     if result.returncode or not match or int(match[1]) not in (1, 2):
         raise ValueError('Unsupported OpenCode version; retain saved configuration')
     return int(match[1])

@@ -30,10 +30,10 @@ class TransformTests(unittest.TestCase):
   out=refresh.opencode_update(original,{ROUTE:FRESH},'work');provider=out['provider']['cpa-work'];model=provider['models'][ROUTE]
   self.assertEqual(out['model'],original['model']);self.assertEqual(provider['options'],original['provider']['cpa-work']['options']);self.assertIn('legacy-alias',provider['models']);self.assertEqual(model['name'],'my label');self.assertEqual(model['options'],{'reasoningEffort':'high','temperature':.2});self.assertEqual(model['variants']['max'],{'custom':1,'reasoningEffort':'max'});self.assertTrue(model['variants']['ultra']['disabled']);self.assertEqual(model['limit'],{'context':1050000,'output':128000})
  def test_opencode_version_detection_accepts_stock_formats_and_rejects_unknown(self):
-  for value,major in [('1.2.17',1),('opencode v2.0.22\n',2),('opencode v2.1.0-beta.1',2)]:
+  for value,major in [('1.2.17',1),('opencode v2.0.22\n',2),('opencode v2.1.0-beta.1',2),('opencode2 v0.0.0-beta-19271',2),('opencode2 v0.0.0-dev-19272',2)]:
    with patch.object(refresh.subprocess,'run',return_value=subprocess.CompletedProcess([],0,value)):
     self.assertEqual(refresh.opencode_major_version('/stock/opencode'),major)
-  for value,status in [('opencode v3.0.0',0),('unknown',0),('2.0.22',1)]:
+  for value,status in [('opencode v3.0.0',0),('unknown',0),('2.0.22',1),('opencode v0.0.0-beta-19271',0)]:
    with patch.object(refresh.subprocess,'run',return_value=subprocess.CompletedProcess([],status,value)):
     with self.assertRaises(ValueError):refresh.opencode_major_version('/stock/opencode')
  def test_opencode_v2_omits_disabled_variants_and_refreshes_verified_aliases(self):

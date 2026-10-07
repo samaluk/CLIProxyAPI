@@ -79,6 +79,8 @@ def main():
         'XDG_DATA_HOME': str(profile / 'data'),
         'XDG_STATE_HOME': str(profile / 'state'),
         'XDG_CACHE_HOME': str(profile / 'cache'),
+        'MISE_CONFIG_DIR': str(Path.home() / '.config/mise'),
+        'MISE_DATA_DIR': str(Path.home() / '.local/share/mise'),
         'PATH': str(profile / 'bin') + os.pathsep + env.get('PATH', '/opt/homebrew/bin:/usr/bin:/bin'),
     })
     if harness == 'claude':
@@ -118,11 +120,6 @@ def main():
         if not config.exists():
             sys.exit('OpenCode profile has not been configured yet; refusing to use a legacy configuration')
         env['OPENCODE_CONFIG'] = str(config)
-    if harness == 'pi':
-        # The shared native Pi installation is selected by mise, independently
-        # of the profile's settings, credentials and sessions.
-        env['MISE_CONFIG_DIR'] = str(Path.home() / '.config/mise')
-        env['MISE_DATA_DIR'] = str(Path.home() / '.local/share/mise')
     if settings.get('proxy_only') is True:
         env['CPA_PROXY_ONLY'] = '1'
         env['CPA_PROXY_SCOPE'] = scope
