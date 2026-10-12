@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-10-04",
+  "reviewed_at": "2026-10-12",
   "components": [
     {
       "repository": "samaluk/CLIProxyAPI",
       "upstream": "https://github.com/router-for-me/CLIProxyAPI",
-      "upstream_ref": "dev",
-      "upstream_commit": "678a92578ca346ff9e77d4811cbd41f899a8cc96",
-      "branch": "review/aliased-model-cooldowns",
-      "commit": "0c3114079d50e652d7778e5f41606836b25d4730",
+      "upstream_ref": "main",
+      "upstream_commit": "bf9341629ef2300ac9d846a2e80fe2756f63a671",
+      "branch": "release/20261012-upstream-defaults",
+      "commit": "f1efbb9e26a8efaf75e264a7ad43ef834fe8fa96",
       "role": "gateway",
-      "version": "8.0.11-review.0c31140.20261004"
+      "version": "8.0.27-review.f1efbb9.20261012"
     },
     {
       "repository": "samaluk/EasyCLIProxyAPI",
@@ -26,7 +26,7 @@
       "upstream": "https://github.com/ahoo/cpa-plugin-commandcode.git",
       "upstream_ref": "main",
       "upstream_commit": "b094d95d779c24d1060f99ddf79a8f270f7f4a25",
-      "branch": "review/model-capabilities",
+      "branch": "release/20261012-upstream-defaults",
       "commit": "0d902aea28626c876791f65be5e66e43bc2dc644",
       "role": "native plugin",
       "version": "0.3.3-review.0d902ae.20260927"
@@ -35,21 +35,21 @@
       "repository": "samaluk/opencode-go-cliproxyapi",
       "upstream": "https://github.com/massiveits/opencode-go-cliproxyapi.git",
       "upstream_ref": "main",
-      "upstream_commit": "0d7a854169e3acdfe480f666880727f69c83b3da",
-      "branch": "review/harness-compatibility",
-      "commit": "62fe2a77149e63f5bdcc3e6e63c8273005e6603a",
+      "upstream_commit": "a4369b9b1cf18a4111a0167e3b50e5d69054fe45",
+      "branch": "release/20261012-upstream-defaults",
+      "commit": "363e39d448ef3ad8931b94904005af55d69c6321",
       "role": "native plugin",
-      "version": "0.1.10-review.62fe2a7.20261004"
+      "version": "0.1.11-review.363e39d.20261012"
     },
     {
       "repository": "samaluk/cpa-key-account-bind",
       "upstream": "https://github.com/FFatTiger/cpa-key-account-bind",
       "upstream_ref": "main",
       "upstream_commit": "ef75b6637f78894072cc793682934e291e9d0304",
-      "branch": "review/scope-policy-errors",
-      "commit": "e29b6f3e2ef1e13a3cc50db3d992a7641c48dd4a",
+      "branch": "release/20261012-upstream-defaults",
+      "commit": "2e8986ec23bf20e24a0534b71037f4ae3305494c",
       "role": "native plugin",
-      "version": "0.3.0-review.e29b6f3.20260928"
+      "version": "0.3.1-review.2e8986e.20261012"
     },
     {
       "repository": "samaluk/pi-cliproxyapi-provider",

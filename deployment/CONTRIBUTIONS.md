@@ -1,5 +1,15 @@
 # Contributions and deployed forks
 
+## October 12 runtime refresh
+
+The four NAS runtime components are recorded in `stack.lock.json` on `deployment/20261012-upstream-defaults`. Core is based on upstream default `main` at `bf934162`; OpenCode Go on `main` at `a4369b9`. CommandCode and account binding were already current with their upstream defaults. Release branches are isolated from the existing review layers and do not rewrite those public PRs. Easy, Pi and T3 source pins remain unchanged; stock client applications are outside this server release.
+
+Core retains the eight reviewed contribution scopes, adapting catalog search-tool calls, translator error returns and quota-suspension accounting to upstream interfaces. Account binding now accepts Codex's ancestor `Session-Id` header with matching leaf turn metadata and explicit fork ancestry. Conflicting identities, missing ancestry, immutable parent changes and cross-scope descendants remain rejected by regression checks.
+
+The image is built from exact clean commit exports, with source and binary hashes embedded in `/opt/cpa/provenance.json`. The original October 4 image and credential/binding directory remain the rollback boundary: revert the image reference while retaining the newest runtime state.
+
+## October 4 release history
+
 All seven source branches were rebased or confirmed current against their original upstream on October 4, 2026. Exact heads and upstream bases are in [stack.lock.json](stack.lock.json). Core targets upstream dev and includes upstream main. All other contributions target upstream main. Existing PR descriptions explain the problem, solution and validation; no closed PR was reopened.
 
 | Component | What remains | Deployed | Review |
