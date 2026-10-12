@@ -26,6 +26,39 @@ class SettingsTests(unittest.TestCase):
         for capacity in (True,0,65,'4'):
             value=copy.deepcopy(POLICY);value['harnesses']['codex']['agents']['max_concurrent_threads_per_session']=capacity
             with self.assertRaises(ValueError):harness_settings.validate(value)
+        for enabled in ('true', 1, None):
+            value=copy.deepcopy(POLICY);value['harnesses']['codex']['supports_websockets']=enabled
+            with self.assertRaises(ValueError):harness_settings.validate(value)
+
+    def test_websocket_policy_projects_and_reports_provider_capability_without_changing_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            policy=copy.deepcopy(POLICY)
+            policy['harnesses']['codex']['supports_websockets']=True
+            policy=harness_settings.validate(policy)
+            for scope in ('personal','work'):
+                home=root/scope/'codex';home.mkdir(parents=True)
+                (home/'auth.json').write_bytes(b'{"tokens":{"access_token":"fixture-native"}}')
+                (home/'config.toml').write_text('model_provider="cpa-'+scope+'"\n'
+                    '[model_providers.cpa-'+scope+']\nbase_url="https://gateway.invalid/v1"\n'
+                    'requires_openai_auth=true\nexperimental_bearer_token="fixture-gateway"\n'
+                    'supports_websockets=false\n[model_providers.other]\nsupports_websockets=false\n')
+            for enabled in (True, False):
+                policy['harnesses']['codex']['supports_websockets']=enabled
+                changes=harness_settings.project(root,policy,{})
+                for path,change in changes.items():
+                    parsed=tomllib.loads(change['after'].decode())
+                    provider=parsed['model_providers'][parsed['model_provider']]
+                    self.assertEqual(provider['supports_websockets'],enabled)
+                    self.assertEqual(provider['experimental_bearer_token'],'fixture-gateway')
+                    self.assertEqual(provider['base_url'],'https://gateway.invalid/v1')
+                    self.assertFalse(parsed['model_providers']['other']['supports_websockets'])
+                    self.assertEqual((path.parent/'auth.json').read_bytes(),b'{"tokens":{"access_token":"fixture-native"}}')
+                    path.write_bytes(change['after'])
+                self.assertEqual(harness_settings.project(root,policy,{}),{})
+                rows=harness_settings.report(root,policy)['byHarness']['codex']
+                self.assertEqual(len(rows),2)
+                self.assertTrue(all(row['configured']['supports_websockets']==enabled and not row['drift'] for row in rows))
 
     def test_unavailable_policy_retains_last_validated_settings(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -95,7 +95,7 @@ class PolicyTests(unittest.TestCase):
                 for relative in ('keys','codex','catalogs'): (profile/relative).mkdir(parents=True)
                 (profile/'keys/downstream.key').write_text('gateway-'+scope)
                 (profile/'codex/auth.json').write_bytes(native)
-                (profile/'codex/config.toml').write_text('model="'+scope+'/fixture"\nforced_login_method="api"\n[model_providers.cpa-'+scope+']\nbase_url="https://nas.example/v1"\nrequires_openai_auth=true\n')
+                (profile/'codex/config.toml').write_text('model="'+scope+'/fixture"\nmodel_provider="cpa-'+scope+'"\nforced_login_method="api"\n[model_providers.cpa-'+scope+']\nbase_url="https://nas.example/v1"\nrequires_openai_auth=true\nsupports_websockets=true\n')
                 (profile/'catalogs/codex-catalog.json').write_text(json.dumps({'models':[{'slug':scope+'/fixture'}]}))
             (home/'.codex').mkdir(); (home/'.codex/auth.json').write_bytes(native)
             (home/'.codex/config.toml').write_text('forced_login_method="api"\nnotify=["keep"]\n')
@@ -115,6 +115,7 @@ class PolicyTests(unittest.TestCase):
                 self.assertEqual(provider['base_url'],'https://nas.example/v1')
                 self.assertEqual(provider['experimental_bearer_token'],'gateway-personal')
                 self.assertTrue(provider['requires_openai_auth'])
+                self.assertTrue(provider['supports_websockets'])
             self.assertEqual((home/'.codex/auth.json').read_bytes(),native)
             self.assertEqual((root/'personal/codex/auth.json').read_bytes(),native)
 

@@ -23,8 +23,11 @@ def validate(value):
     if not isinstance(harnesses, dict) or set(harnesses) != {'codex', 'claude', 'opencode', 'pi'}:
         raise ValueError('Unknown harness settings family')
     codex = harnesses['codex']
-    if not isinstance(codex, dict) or set(codex) != {'model_reasoning_effort', 'agents'}:
+    required_codex = {'model_reasoning_effort', 'agents'}
+    if not isinstance(codex, dict) or not required_codex <= set(codex) <= required_codex | {'supports_websockets'}:
         raise ValueError('Unknown Codex shared settings')
+    if 'supports_websockets' in codex and type(codex['supports_websockets']) is not bool:
+        raise ValueError('Invalid Codex WebSocket capability')
     if codex['model_reasoning_effort'] not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
         raise ValueError('Invalid Codex reasoning effort')
     agents_value = codex['agents']
@@ -109,6 +112,26 @@ def agents(raw, values):
     return raw
 
 
+def codex_websockets(raw, enabled):
+    """Project the transport capability into existing CPA provider tables."""
+    providers = tomllib.loads(raw).get('model_providers', {})
+    for name in providers:
+        if not name.startswith('cpa-'):
+            continue
+        pattern = r'(?ms)(^\[model_providers\.' + re.escape(name) + r'\]\s*\n)(.*?)(?=^\[|\Z)'
+        def update(match):
+            line = 'supports_websockets = ' + json.dumps(enabled)
+            body, count = re.subn(r'(?m)^[ \t]*supports_websockets\s*=.*$', lambda _: line, match[2])
+            if not count:
+                body = body.rstrip() + '\n' + line + '\n'
+            return match[1] + body
+        raw, count = re.subn(pattern, update, raw)
+        if count != 1:
+            raise ValueError('Expected a single CPA Codex provider table')
+    tomllib.loads(raw)
+    return raw
+
+
 def project(root, policy, prepared):
     """Project each harness's own baseline across that harness's profiles."""
     changes = {}
@@ -129,6 +152,8 @@ def project(root, policy, prepared):
             if not count:
                 raw = 'model_reasoning_effort = ' + json.dumps(effort) + '\n' + raw
             values = {k: v for k, v in defaults['codex']['agents'].items() if v is not None}
+            if 'supports_websockets' in defaults['codex']:
+                raw = codex_websockets(raw, defaults['codex']['supports_websockets'])
             emit(path, agents(raw, values).encode())
         for harness, relative in (('claude', 'claude/settings.json'), ('pi', 'pi/settings.json'),
                                   ('opencode', 'config/opencode/opencode.json')):
@@ -158,7 +183,10 @@ def report(root, policy, machine=None):
             value = tomllib.loads(path.read_text()) if harness == 'codex' else json.loads(path.read_text())
             configured = {}
             for key in policy['harnesses'][harness]:
-                if isinstance(policy['harnesses'][harness][key], dict):
+                if harness == 'codex' and key == 'supports_websockets':
+                    provider = value.get('model_providers', {}).get(value.get('model_provider'), {})
+                    configured[key] = provider.get(key)
+                elif isinstance(policy['harnesses'][harness][key], dict):
                     configured[key] = {k: value.get(key, {}).get(k) for k in policy['harnesses'][harness][key]}
                 else:
                     configured[key] = value.get(key)

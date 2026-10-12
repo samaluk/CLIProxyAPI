@@ -33,7 +33,7 @@ def native_codex_usage(settings, scope):
     return scope == 'personal' and settings.get('codex_native_usage') is True
 
 
-def provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage=False):
+def provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage=False, supports_websockets=None):
     sections = re.split(r'(?m)(?=^\[)', raw)
     raw = ''.join(section for section in sections if not re.match(r'^\[model_providers\.', section))
     values = {'model_provider': 'cpa-' + scope, 'model': model,
@@ -48,6 +48,10 @@ def provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage
     raw = raw.rstrip() + (f'\n\n[model_providers.cpa-{scope}]\nname = "CLIProxyAPI {scope.title()}"\n'
             f'base_url = {json.dumps(endpoint + "/v1")}\nwire_api = "responses"\n'
             'requires_openai_auth = true\n')
+    if supports_websockets is not None:
+        if type(supports_websockets) is not bool:
+            raise ValueError('Invalid Codex WebSocket capability')
+        raw += 'supports_websockets = ' + json.dumps(supports_websockets) + '\n'
     if native_usage:
         raw += 'experimental_bearer_token = ' + json.dumps(key) + '\n'
     parsed = tomllib.loads(raw)
@@ -105,7 +109,9 @@ def default_home_targets(root, settings, prepared=None, home=None, snapshots=Non
         allowed = {m['slug'] for m in json.loads(read_scoped(catalog_path))['models']}
         model = choose_route(document.get('model'), scope, allowed, scoped['model'])
         native_usage = native_codex_usage(settings, scope)
-        updated = provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage).decode()
+        scoped_provider = scoped.get('model_providers', {}).get(scoped.get('model_provider'), {})
+        updated = provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage,
+                                  supports_websockets=scoped_provider.get('supports_websockets')).decode()
         if 'model_reasoning_effort' in scoped:
             updated = root_values(updated, {'model_reasoning_effort': scoped['model_reasoning_effort']})
         limits = {k: v for k, v in scoped.get('agents', {}).items()
