@@ -3,7 +3,10 @@
   "harnesses": {
     "codex": {
       "model_reasoning_effort": "medium",
-      "supports_websockets": true,
+      "supports_websockets": {
+        "personal": true,
+        "work": false
+      },
       "agents": {
         "max_concurrent_threads_per_session": 15,
         "max_depth": 2

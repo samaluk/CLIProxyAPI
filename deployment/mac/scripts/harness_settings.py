@@ -26,8 +26,12 @@ def validate(value):
     required_codex = {'model_reasoning_effort', 'agents'}
     if not isinstance(codex, dict) or not required_codex <= set(codex) <= required_codex | {'supports_websockets'}:
         raise ValueError('Unknown Codex shared settings')
-    if 'supports_websockets' in codex and type(codex['supports_websockets']) is not bool:
-        raise ValueError('Invalid Codex WebSocket capability')
+    if 'supports_websockets' in codex:
+        websockets = codex['supports_websockets']
+        if type(websockets) is not bool and not (isinstance(websockets, dict)
+                and set(websockets) == {'personal', 'work'}
+                and all(type(enabled) is bool for enabled in websockets.values())):
+            raise ValueError('Invalid Codex WebSocket capability')
     if codex['model_reasoning_effort'] not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
         raise ValueError('Invalid Codex reasoning effort')
     agents_value = codex['agents']
@@ -132,6 +136,11 @@ def codex_websockets(raw, enabled):
     return raw
 
 
+def scoped_codex_websockets(policy, scope):
+    value = policy['harnesses']['codex'].get('supports_websockets')
+    return value[scope] if isinstance(value, dict) else value
+
+
 def project(root, policy, prepared):
     """Project each harness's own baseline across that harness's profiles."""
     changes = {}
@@ -153,7 +162,7 @@ def project(root, policy, prepared):
                 raw = 'model_reasoning_effort = ' + json.dumps(effort) + '\n' + raw
             values = {k: v for k, v in defaults['codex']['agents'].items() if v is not None}
             if 'supports_websockets' in defaults['codex']:
-                raw = codex_websockets(raw, defaults['codex']['supports_websockets'])
+                raw = codex_websockets(raw, scoped_codex_websockets(policy, scope))
             emit(path, agents(raw, values).encode())
         for harness, relative in (('claude', 'claude/settings.json'), ('pi', 'pi/settings.json'),
                                   ('opencode', 'config/opencode/opencode.json')):
@@ -192,6 +201,8 @@ def report(root, policy, machine=None):
                     configured[key] = value.get(key)
             differences = []
             for key, expected in policy['harnesses'][harness].items():
+                if harness == 'codex' and key == 'supports_websockets':
+                    expected = scoped_codex_websockets(policy, scope)
                 if key == 'agents':
                     differences.extend('agents.' + k for k, v in expected.items()
                                        if v is not None and configured[key].get(k) != v)

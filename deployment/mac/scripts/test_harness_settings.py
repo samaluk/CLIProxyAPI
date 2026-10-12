@@ -26,7 +26,7 @@ class SettingsTests(unittest.TestCase):
         for capacity in (True,0,65,'4'):
             value=copy.deepcopy(POLICY);value['harnesses']['codex']['agents']['max_concurrent_threads_per_session']=capacity
             with self.assertRaises(ValueError):harness_settings.validate(value)
-        for enabled in ('true', 1, None):
+        for enabled in ('true', 1, None, {'personal': True}, {'personal': True, 'work': 1}):
             value=copy.deepcopy(POLICY);value['harnesses']['codex']['supports_websockets']=enabled
             with self.assertRaises(ValueError):harness_settings.validate(value)
 
@@ -59,6 +59,14 @@ class SettingsTests(unittest.TestCase):
                 rows=harness_settings.report(root,policy)['byHarness']['codex']
                 self.assertEqual(len(rows),2)
                 self.assertTrue(all(row['configured']['supports_websockets']==enabled and not row['drift'] for row in rows))
+            policy['harnesses']['codex']['supports_websockets']={'personal':True,'work':False}
+            policy=harness_settings.validate(policy)
+            for path,change in harness_settings.project(root,policy,{}).items():
+                path.write_bytes(change['after'])
+            rows=harness_settings.report(root,policy)['byHarness']['codex']
+            self.assertEqual([row['configured']['supports_websockets'] for row in rows],[True,False])
+            self.assertTrue(all(not row['drift'] for row in rows))
+            self.assertEqual(harness_settings.project(root,policy,{}),{})
 
     def test_unavailable_policy_retains_last_validated_settings(self):
         with tempfile.TemporaryDirectory() as folder:
