@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-10-12",
+  "reviewed_at": "2026-10-23",
   "components": [
     {
       "repository": "samaluk/CLIProxyAPI",
       "upstream": "https://github.com/router-for-me/CLIProxyAPI",
       "upstream_ref": "main",
-      "upstream_commit": "bf9341629ef2300ac9d846a2e80fe2756f63a671",
-      "branch": "release/20261012-upstream-defaults",
-      "commit": "f1efbb9e26a8efaf75e264a7ad43ef834fe8fa96",
+      "upstream_commit": "d946c4fba6fc9a5cfbca1f3d85184d62ad2fb683",
+      "branch": "release/20261023-upstream-defaults",
+      "commit": "5b5749caba60c876b418f3618c1bc3d8b6a0aeed",
       "role": "gateway",
-      "version": "8.0.27-review.f1efbb9.20261012"
+      "version": "8.0.40-review.5b5749c.20261023"
     },
     {
       "repository": "samaluk/EasyCLIProxyAPI",
@@ -26,7 +26,7 @@
       "upstream": "https://github.com/ahoo/cpa-plugin-commandcode.git",
       "upstream_ref": "main",
       "upstream_commit": "b094d95d779c24d1060f99ddf79a8f270f7f4a25",
-      "branch": "release/20261012-upstream-defaults",
+      "branch": "release/20261023-upstream-defaults",
       "commit": "0d902aea28626c876791f65be5e66e43bc2dc644",
       "role": "native plugin",
       "version": "0.3.3-review.0d902ae.20260927"
@@ -35,18 +35,18 @@
       "repository": "samaluk/opencode-go-cliproxyapi",
       "upstream": "https://github.com/massiveits/opencode-go-cliproxyapi.git",
       "upstream_ref": "main",
-      "upstream_commit": "a4369b9b1cf18a4111a0167e3b50e5d69054fe45",
-      "branch": "release/20261012-upstream-defaults",
-      "commit": "363e39d448ef3ad8931b94904005af55d69c6321",
+      "upstream_commit": "e8d3e36db58fc390b62624c20c2ae1b5b9078546",
+      "branch": "release/20261023-upstream-defaults",
+      "commit": "de326d2be3ae9d2b40566bdeb1c24796ced16a36",
       "role": "native plugin",
-      "version": "0.1.11-review.363e39d.20261012"
+      "version": "0.2.2-review.de326d2.20261023"
     },
     {
       "repository": "samaluk/cpa-key-account-bind",
       "upstream": "https://github.com/FFatTiger/cpa-key-account-bind",
       "upstream_ref": "main",
       "upstream_commit": "ef75b6637f78894072cc793682934e291e9d0304",
-      "branch": "release/20261012-upstream-defaults",
+      "branch": "release/20261023-upstream-defaults",
       "commit": "2e8986ec23bf20e24a0534b71037f4ae3305494c",
       "role": "native plugin",
       "version": "0.3.1-review.2e8986e.20261012"
