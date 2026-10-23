@@ -1,5 +1,11 @@
 # Contributions and deployed forks
 
+## October 23 runtime refresh
+
+The runtime lock now uses `release/20261023-upstream-defaults` branches. Core contains upstream default `main` at `d946c4fb` (8.0.40), and OpenCode Go contains `main` at `e8d3e36` (0.2.2). CommandCode and account-binding upstream heads have not changed since October 12; their exact contribution commits and versions are retained. The existing review and client branches are not rewritten.
+
+All nine core and six OpenCode Go contribution commits remain. Rebase resolutions retain upstream dynamic Claude thinking while preserving explicitly advertised effort values, and retain the newer OpenCode Go version with release stamping. One test-only follow-up updates the Claude effort fixture to the upstream v8 plugin API. The pinned Linux build base advances to Go 1.26.10, matching upstream's toolchain requirement. Easy, Pi and T3 sources and installed clients are outside this server update.
+
 ## October 12 runtime refresh
 
 The four NAS runtime components are recorded in `stack.lock.json` on `deployment/20261012-upstream-defaults`. Core is based on upstream default `main` at `bf934162`; OpenCode Go on `main` at `a4369b9`. CommandCode and account binding were already current with their upstream defaults. Release branches are isolated from the existing review layers and do not rewrite those public PRs. Easy, Pi and T3 source pins remain unchanged; stock client applications are outside this server release.
