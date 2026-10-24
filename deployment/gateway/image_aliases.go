@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -83,6 +84,12 @@ func (g *gateway) serveProxy(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "image request could not be encoded", http.StatusBadRequest)
 				return
 			}
+			if !hasImageIdentity(r.Header, fields) {
+				// Standalone tools have no conversation ancestry. Give this
+				// authenticated, scope-resolved request its own root; CPA still
+				// validates the downstream binding and persists its scope.
+				r.Header.Set("Session-Id", "cpa-image-"+rand.Text())
+			}
 		}
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
@@ -90,4 +97,34 @@ func (g *gateway) serveProxy(w http.ResponseWriter, r *http.Request) {
 	r.Header.Del("Content-Length")
 	r.TransferEncoding = nil
 	g.proxy.ServeHTTP(w, r)
+}
+
+// Fail closed when any client identity/ancestry hint is present, including an
+// empty or malformed one. Do not turn a rejected descendant into a new root.
+func hasImageIdentity(headers http.Header, fields map[string]json.RawMessage) bool {
+	for name := range headers {
+		lower := strings.ToLower(name)
+		if lower == "user-agent" || lower == "cache-control" {
+			continue
+		}
+		if imageIdentityName(lower) || lower == "x-client-request-id" || lower == "x-codex-turn-metadata" {
+			return true
+		}
+	}
+	for name := range fields {
+		lower := strings.ToLower(name)
+		if imageIdentityName(lower) || lower == "metadata" || lower == "extra_body" || lower == "request" || lower == "user" {
+			return true
+		}
+	}
+	return false
+}
+
+func imageIdentityName(name string) bool {
+	for _, part := range []string{"session", "thread", "parent", "agent", "conversation", "chat", "task", "action", "fork", "cache"} {
+		if strings.Contains(name, part) {
+			return true
+		}
+	}
+	return false
 }

@@ -127,6 +127,15 @@ clients must supply a full route themselves. JSON image requests on alias-enable
 profiles are limited to 128 MiB; failed or oversized reads are rejected before
 forwarding. A missing model remains subject to CPA's existing default behavior.
 
+Standalone native image calls also omit conversation identity. Only when an
+authenticated request resolves a configured alias and carries no identity or
+ancestry hints, the gateway adds a fresh opaque `Session-Id` for that single
+image operation. The binding plugin authorizes and persists it as an independent
+root in the key's scope. Any client identity/parent metadata, including empty or
+malformed hints, suppresses this compatibility behavior and remains subject to
+the normal policy. Image operations without supplied ancestry cannot be linked
+to a chat tree; they remain isolated by their existing scoped key and route.
+
 Deploy the updated gateway executable and private profile mapping together,
 preserving all existing keys, auth files and binding state. Rollback removes the
 mapping and restores the prior software image. Verify a native image request and

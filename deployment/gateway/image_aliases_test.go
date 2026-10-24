@@ -88,7 +88,7 @@ func TestImageAliasDoesNotChangeOtherRequests(t *testing.T) {
 			}
 			g := fixtureGateway(t, func(w http.ResponseWriter, r *http.Request) {
 				body, _ := io.ReadAll(r.Body)
-				if string(body) != tc.body || r.URL.Path != tc.path || r.Header.Get("Authorization") != authorization {
+				if string(body) != tc.body || r.URL.Path != tc.path || r.Header.Get("Authorization") != authorization || r.Header.Get("Session-Id") != "" {
 					t.Error("request changed outside its declared image alias")
 				}
 				w.WriteHeader(http.StatusForbidden)
@@ -101,6 +101,78 @@ func TestImageAliasDoesNotChangeOtherRequests(t *testing.T) {
 			g.serveProxy(w, r)
 			if w.Code != http.StatusForbidden {
 				t.Fatalf("backend policy response changed: %d", w.Code)
+			}
+		})
+	}
+}
+
+func TestStandaloneImagesReceiveIndependentRoots(t *testing.T) {
+	seen := map[string]bool{}
+	for _, path := range []string{"/v1/images/generations", "/v1/images/edits"} {
+		g := fixtureGateway(t, func(w http.ResponseWriter, r *http.Request) {
+			id := r.Header.Get("Session-Id")
+			if !strings.HasPrefix(id, "cpa-image-") || len(id) < 32 || seen[id] {
+				t.Fatalf("missing or reused standalone image identity: %q", id)
+			}
+			seen[id] = true
+			if r.Header.Get("Authorization") != "Bearer fixture-personal-key-12345" {
+				t.Error("standalone request lost its scoped authentication")
+			}
+			w.WriteHeader(http.StatusNoContent)
+		})
+		g.cfg.Profiles[1].ImageModelAliases = map[string]string{"gpt-image-2": "personal/codex-oauth/gpt-image-2"}
+		for range 2 {
+			r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-image-2","prompt":"test","images":[{"image_url":"data:image/png;base64,aGk="}]}`))
+			r.Header.Set("Authorization", "Bearer fixture-personal-key-12345")
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("User-Agent", "native-image-tool")
+			w := httptest.NewRecorder()
+			g.serveProxy(w, r)
+			if w.Code != http.StatusNoContent {
+				t.Fatalf("standalone request failed: %d", w.Code)
+			}
+		}
+	}
+}
+
+func TestImageIdentityHintsNeverBecomeIndependentRoots(t *testing.T) {
+	for _, tc := range []struct{ header, value, extra string }{
+		{"Session-Id", "existing-root", ""},
+		{"Session_id", "", ""},
+		{"Thread-Id", "leaf", ""},
+		{"X-Session-ID", "existing-root", ""},
+		{"X-Codex-Parent-Thread-Id", "unknown-parent", ""},
+		{"X-Codex-Turn-Metadata", "invalid-json", ""},
+		{"X-Openai-Subagent", "1", ""},
+		{"X-Client-Request-Id", "client-id", ""},
+		{"", "", `,"thread_id":"existing-leaf"`},
+		{"", "", `,"parent_thread_id":"unknown-parent"`},
+		{"", "", `,"metadata":{"forked_from_thread_id":"unknown-parent"}`},
+		{"", "", `,"extra_body":{"parent_session_id":"unknown-parent"}`},
+		{"", "", `,"conversation":{"id":"existing-root"}`},
+		{"", "", `,"user":"existing-user"`},
+	} {
+		t.Run(tc.header+tc.extra, func(t *testing.T) {
+			g := fixtureGateway(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Session-Id") != "" && tc.header != "Session-Id" {
+					t.Error("client identity/ancestry was replaced with a root")
+				}
+				if tc.header != "" && r.Header.Get(tc.header) != tc.value {
+					t.Error("client identity header changed")
+				}
+				w.WriteHeader(http.StatusForbidden)
+			})
+			g.cfg.Profiles[1].ImageModelAliases = map[string]string{"gpt-image-2": "personal/codex-oauth/gpt-image-2"}
+			r := httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"gpt-image-2"`+tc.extra+`}`))
+			r.Header.Set("Authorization", "Bearer fixture-personal-key-12345")
+			r.Header.Set("Content-Type", "application/json")
+			if tc.header != "" {
+				r.Header.Set(tc.header, tc.value)
+			}
+			w := httptest.NewRecorder()
+			g.serveProxy(w, r)
+			if w.Code != http.StatusForbidden {
+				t.Error("backend policy denial changed")
 			}
 		})
 	}
