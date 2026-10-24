@@ -26,8 +26,9 @@ import (
 
 type model map[string]any
 type profile struct {
-	Scope string `json:"scope"`
-	Key   string `json:"key"`
+	Scope             string            `json:"scope"`
+	Key               string            `json:"key"`
+	ImageModelAliases map[string]string `json:"image_model_aliases,omitempty"`
 }
 type config struct {
 	Listen        string    `json:"listen"`
@@ -361,6 +362,9 @@ func newGateway(cfg config) (*gateway, error) {
 			return nil, errors.New("unique personal/work scoped keys required")
 		}
 		keys[p.Key], scopes[p.Scope] = true, true
+		if err := validateImageModelAliases(p); err != nil {
+			return nil, err
+		}
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
@@ -393,7 +397,7 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/catalog/v1", g.serveCatalog)
-	mux.Handle("/", g.proxy)
+	mux.HandleFunc("/", g.serveProxy)
 	server := &http.Server{Addr: cfg.Listen, Handler: mux, ReadHeaderTimeout: 15 * time.Second, MaxHeaderBytes: 1 << 20}
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Print("gateway listener stopped")

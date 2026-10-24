@@ -91,6 +91,54 @@ last successful run, revision, deferred routes and missing templates. Scheduler
 logs record failed runs. Backups and installation restore manifests stay private
 under `sync-state/`.
 
+## Native Codex image requests
+
+Codex's standalone image tool sends `gpt-image-2` to `/v1/images/generations`
+or `/v1/images/edits` independently of the conversation's model. The scoped
+gateway instead registers `personal/codex-oauth/gpt-image-2`. Without an explicit
+compatibility mapping, CPA returns `model_not_found` before account selection.
+Adding the image to a chat-model catalog does not resolve this request name.
+
+The gateway supports an optional `image_model_aliases` map on each existing
+private `gateway.json` profile. Merge this fragment into the Personal profile,
+retaining its existing key and other settings:
+
+```json
+{
+  "scope": "personal",
+  "image_model_aliases": {
+    "gpt-image-2": "personal/codex-oauth/gpt-image-2"
+  }
+}
+```
+
+Configure only routes already registered for that account. The alias must keep
+the exact model name and target an explicit scope/source/model route belonging
+to the profile; startup rejects cross-account or different-model mappings.
+Work needs its own declared, authorized route and does not inherit Personal's
+mapping. No aliases are enabled by default.
+
+For authenticated POST requests to those two image endpoints, JSON bodies with
+an exact configured model name receive that profile's full route. Authorization
+and session headers remain intact, and CPA's normal scheduler and account-binding
+plugin still authorize the result. Explicit routes, other models, non-image
+endpoints, compressed bodies and multipart uploads pass through. Multipart
+clients must supply a full route themselves. JSON image requests on alias-enabled
+profiles are limited to 128 MiB; failed or oversized reads are rejected before
+forwarding. A missing model remains subject to CPA's existing default behavior.
+
+Deploy the updated gateway executable and private profile mapping together,
+preserving all existing keys, auth files and binding state. Rollback removes the
+mapping and restores the prior software image. Verify a native image request and
+a denied cross-account request separately; a successful model listing alone is
+insufficient.
+
+For a gateway-only release, build `deployment/Dockerfile.gateway` from an exact
+clean source export and pass its full commit as `GATEWAY_COMMIT`. The immutable
+base retains the reviewed core and plugin binaries and their provenance; the
+new `gateway-provenance.json` records this executable's commit and SHA-256.
+Update both Homelab image pins through the normal PR and Komodo workflow.
+
 ## Software releases and rollback
 
 Use the image build in `deployment/Dockerfile` and `stack.lock.json`. Publish a
