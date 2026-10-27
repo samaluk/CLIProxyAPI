@@ -1,0 +1,17 @@
+# Dogfood a locked plugin while retaining the reviewed core, gateway and peers.
+FROM ghcr.io/samaluk/cpa-gateway:20261024-native-images-2@sha256:f3aee0f911f9810192f062dec4b333a092e100a414cf8a856a7e4c0bc2feeb21 AS previous
+
+FROM golang:1.26.10-bookworm@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS build
+RUN apt-get update && apt-get install -y --no-install-recommends python3 build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY --from=previous /opt/cpa/provenance.json base-provenance.json
+COPY stack.lock.json source_manifest.py build_go_plugin.py ./
+COPY .sources/ .sources/
+RUN python3 build_go_plugin.py
+
+FROM previous
+ARG PACKAGING_COMMIT
+LABEL io.cpa.packaging.revision=$PACKAGING_COMMIT
+COPY --from=build /out/plugins/opencode-go-cliproxyapi.so /opt/cpa/plugins/opencode-go-cliproxyapi.so
+COPY --from=build /out/provenance.json /opt/cpa/provenance.json
+COPY stack.lock.json /opt/cpa/stack.lock.json

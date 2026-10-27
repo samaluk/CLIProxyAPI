@@ -1,5 +1,15 @@
 # Contributions and deployed forks
 
+## October 27 Gemini/Argon dogfood
+
+The Go plugin's `feature/gemini-argon` branch is based directly on upstream
+`e8d3e36` and adds native Google routing and translation. The production-derived
+`dogfood/20261027-argon` branch adds the same feature without retiring the six
+existing contributions. Core and both peer plugin pins are unchanged. The
+packaging layer preserves the October 24 gateway binary and native image fixes.
+`stack.lock.json` records the exact dogfood plugin head; no upstream PR has been
+opened for this feature yet.
+
 ## October 23 runtime refresh
 
 The runtime lock now uses `release/20261023-upstream-defaults` branches. Core contains upstream default `main` at `d946c4fb` (8.0.40), and OpenCode Go contains `main` at `e8d3e36` (0.2.2). CommandCode and account-binding upstream heads have not changed since October 12; their exact contribution commits and versions are retained. The existing review and client branches are not rewritten.

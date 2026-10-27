@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-10-23",
+  "reviewed_at": "2026-10-27",
   "components": [
     {
       "repository": "samaluk/CLIProxyAPI",
@@ -36,10 +36,10 @@
       "upstream": "https://github.com/massiveits/opencode-go-cliproxyapi.git",
       "upstream_ref": "main",
       "upstream_commit": "e8d3e36db58fc390b62624c20c2ae1b5b9078546",
-      "branch": "release/20261023-upstream-defaults",
-      "commit": "de326d2be3ae9d2b40566bdeb1c24796ced16a36",
+      "branch": "dogfood/20261027-argon",
+      "commit": "4ac475e8ba1adad64ca1fd5051d6cf622637ecf4",
       "role": "native plugin",
-      "version": "0.2.2-review.de326d2.20261023"
+      "version": "0.2.2-argon.20261027.1"
     },
     {
       "repository": "samaluk/cpa-key-account-bind",

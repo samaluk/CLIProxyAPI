@@ -1,5 +1,20 @@
 # Start here
 
+The October 27 Argon dogfood layer changes only the locked OpenCode Go plugin.
+`Dockerfile.go-plugin` builds its exact clean source using the contributor-required
+debug tag and stamps `0.2.2-argon.20261027.1`. The base is the immutable October 24
+native-images release; core, catalog gateway, CommandCode and account binding
+binaries are retained. Source-tree and plugin hashes replace only that component
+in the embedded provenance. Revert the image pin for software rollback while
+retaining the latest OAuth and session state.
+
+The standalone feature is on
+[`samaluk/opencode-go-cliproxyapi:feature/gemini-argon`](https://github.com/samaluk/opencode-go-cliproxyapi/tree/feature/gemini-argon),
+based directly on upstream main. The locked dogfood branch also retains the six
+existing runtime contributions. All three client APIs passed live streaming,
+non-streaming and tool-result continuation checks against the user's existing
+Go account. The upstream PR is intentionally deferred until after dogfooding.
+
 This fork assembles one CLIProxyAPI gateway and three native plugins. The gateway routes requests to existing subscriptions and API accounts; it does not run model inference. The Synology runs the gateway in Docker through homelab/Komodo. EasyCLIProxyAPI is retained on the Mac for rollback, with automatic core startup disabled. Codex, Claude Code, OpenCode and Pi remain clients. T3 Code runs those clients and uses their catalogs.
 
 The source of truth is `stack.lock.json`, which pins reviewed commits in seven forks. Four components run in the NAS image: core and three native plugins. The October 23 runtime release is assembled on `deployment/20261023-upstream-defaults`, based on `deployment/proxy-authoritative-clients`. Each runtime source contains its original upstream's default `main` as fetched on October 23. Existing review branches and client layers remain intact. Easy, Pi and T3 pins remain separate historical records; stock client applications are outside this server release.
