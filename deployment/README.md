@@ -8,6 +8,20 @@ binaries are retained. Source-tree and plugin hashes replace only that component
 in the embedded provenance. Revert the image pin for software rollback while
 retaining the latest OAuth and session state.
 
+The published Argon dogfood candidate is
+`ghcr.io/samaluk/cpa-gateway:20261027-argon-dogfood-1@sha256:39e01aa72d29a0783b9a9eb21b2bd0eb2c661baa38848bf39fade2c49a433517`.
+NAS compatibility preflight passed with network disabled and synthetic
+configuration, registering plugin version `0.2.2-argon.20261027.1` and Argon.
+The [homelab Compose pin](https://github.com/samaluk/homelab/blob/main/easy-cli-proxy/compose.yaml)
+identifies the deployed artifact; the candidate is proposed in
+[homelab PR #362](https://github.com/samaluk/homelab/pull/362).
+
+The debug tag enables metadata tracing to `/opt/cpa/opencode-go-debug.log` in
+the core container's writable layer. It has no automatic rotation and persists
+until the container is recreated. During dogfooding, monitor its size and
+truncate it if it reaches 10 MiB; do not copy the trace into public evidence.
+The homelab stack README documents the inspection and cleanup commands.
+
 The standalone feature is on
 [`samaluk/opencode-go-cliproxyapi:feature/gemini-argon`](https://github.com/samaluk/opencode-go-cliproxyapi/tree/feature/gemini-argon),
 based directly on upstream main. The locked dogfood branch also retains the six
@@ -21,7 +35,7 @@ The source of truth is `stack.lock.json`, which pins reviewed commits in seven f
 
 Core advances from 8.0.27 to 8.0.40 and OpenCode Go from 0.1.11 to 0.2.2, retaining the existing capability, scope, cooldown and tool-history contributions. CommandCode and account binding already match their unchanged upstream defaults. Rebase resolutions preserve upstream dynamic Claude thinking and the registered OpenCode Go release version; a stale test fixture now imports the v8 plugin API. The Linux build uses Go 1.26.10 and generic amd64, with source and binary hashes embedded in the image.
 
-The published candidate is `ghcr.io/samaluk/cpa-gateway:20261023-upstream-defaults-1@sha256:c30dd8a9f7d414eedfd1b87cf9151fc538d11c739998d428a0bdacc810c4a9a1`. Deploy it only after NAS preflight; the homelab Compose digest identifies the deployed artifact. Full Go suites on macOS and Linux report Home cluster heartbeat and Git-backed storage corruption failures; these same failures reproduce on clean upstream `d946c4fb`. The NAS uses neither feature. All other core packages pass, as do affected-package race checks, all native plugin tests/race/vet, gateway tests, the required server build and all C-shared builds. Record NAS preflight and live acceptance separately. Rollback changes the image while preserving the newest OAuth and binding state.
+The October 23 baseline was `ghcr.io/samaluk/cpa-gateway:20261023-upstream-defaults-1@sha256:c30dd8a9f7d414eedfd1b87cf9151fc538d11c739998d428a0bdacc810c4a9a1`; the current candidate is listed above. Full Go suites on macOS and Linux report Home cluster heartbeat and Git-backed storage corruption failures; these same failures reproduce on clean upstream `d946c4fb`. The NAS uses neither feature. All other core packages pass, as do affected-package race checks, all native plugin tests/race/vet, gateway tests, the required server build and all C-shared builds. Record NAS preflight and live acceptance separately. Rollback changes the image while preserving the newest OAuth and binding state.
 
 ## Current design
 
