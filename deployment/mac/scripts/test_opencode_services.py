@@ -2,12 +2,28 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 import opencode_services as services
 
 
 class OpenCodeServicesTests(unittest.TestCase):
+    def test_model_loading_503_retries_but_authentication_failures_do_not(self):
+        busy = urllib.error.HTTPError('http://127.0.0.1/api/model', 503, 'loading', {}, None)
+        ready = {'data': [{'providerID': 'cpa-work', 'id': 'work/litellm/kimi'}]}
+        with patch.object(services, 'request', side_effect=[busy, ready]), \
+             patch.object(services.time, 'monotonic', side_effect=[0, 1]), \
+             patch.object(services.time, 'sleep') as pause:
+            self.assertEqual(services.settled_models('http://127.0.0.1', 'fixture', 'work',
+                             {'cpa-work/work/litellm/kimi'}, '/home'), 1)
+            pause.assert_called_once()
+        denied = urllib.error.HTTPError('http://127.0.0.1/api/model', 401, 'denied', {}, None)
+        with patch.object(services, 'request', side_effect=denied), patch.object(services.time, 'sleep') as pause:
+            with self.assertRaises(urllib.error.HTTPError):
+                services.settled_models('http://127.0.0.1', 'fixture', 'work', {'cpa-work/m'}, '/home')
+            pause.assert_not_called()
+
     def test_waits_past_nonempty_builtin_snapshot_and_rejects_foreign_scope(self):
         expected = {'cpa-personal/personal/codex-oauth/gpt-6.1-sol'}
         snapshots = [

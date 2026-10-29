@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -33,7 +34,12 @@ def settled_models(url, password, scope, expected, directory):
     path = '/api/model?' + urllib.parse.urlencode({'location[directory]': str(directory)})
     deadline = time.monotonic() + 15
     while True:
-        models = request(url, password, path)['data']
+        try:
+            models = request(url, password, path)['data']
+        except urllib.error.HTTPError as error:
+            if error.code != 503:
+                raise
+            models = []  # Stock OpenCode reports 503 while loading a location.
         actual = {f"{m['providerID']}/{m['id']}" for m in models}
         if expected <= actual and actual and all(m.startswith('cpa-' + scope + '/') for m in actual):
             return len(actual)
