@@ -15,16 +15,16 @@ class TransformTests(unittest.TestCase):
   raw={**FRESH,'base_instructions':'PRIVATE PROMPT','model_messages':{'instructions_template':'PRIVATE'},'apiKey':'SECRET','description':'REMOTE PROSE'}
   out=refresh.safe_model(raw)
   self.assertNotIn('PRIVATE',json.dumps(out));self.assertNotIn('SECRET',json.dumps(out));self.assertNotIn('REMOTE',json.dumps(out))
- def test_codex_preserves_prompts_and_temporarily_absent_routes(self):
-  base={'other':'setting','models':[{'slug':ROUTE,'base_instructions':'user prompt','model_messages':{'native':'bytes'},'display_name':'user label','custom':'keep','context_window':42},{'slug':'personal/codex-oauth/gpt-6-astra'},{'slug':next(iter(refresh.RETIRED))}]}
+ def test_codex_metadata_discards_prompts_and_preserves_missing_scoped_routes(self):
+  base={'models':[{'slug':ROUTE,'base_instructions':'user prompt','model_messages':{'native':'bytes'},'display_name':'user label','context_window':42},{'slug':'work/litellm/saved','base_instructions':'old'},{'slug':'personal/codex-oauth/gpt-6-astra'},{'slug':next(iter(refresh.RETIRED))}]}
   original=copy.deepcopy(base);out,pending=refresh.codex_update(base,{ROUTE:FRESH},'work')
-  self.assertEqual(base,original);self.assertEqual(out['other'],'setting');self.assertEqual(len(out['models']),2)
-  model=out['models'][0];self.assertEqual(model['base_instructions'],'user prompt');self.assertEqual(model['model_messages'],{'native':'bytes'});self.assertEqual(model['custom'],'keep');self.assertEqual(model['display_name'],'user label');self.assertEqual(model['context_window'],1050000);self.assertEqual(pending,[])
- def test_new_codex_requires_exact_canonical_template(self):
-  out,pending=refresh.codex_update({'models':[]},{ROUTE:FRESH},'work',{'models':[{'slug':'native-luna-extra','base_instructions':'wrong'}]})
-  self.assertEqual(out['models'],[]);self.assertEqual(pending,[ROUTE])
-  out,pending=refresh.codex_update({'models':[]},{ROUTE:FRESH},'work',{'models':[{'slug':'native-luna','base_instructions':'trusted'}]})
-  self.assertEqual(out['models'][0]['base_instructions'],'trusted');self.assertEqual(out['models'][0]['slug'],ROUTE);self.assertFalse(pending)
+  self.assertEqual(base,original);self.assertEqual(len(out['models']),2)
+  model=out['models'][0];self.assertNotIn('base_instructions',model);self.assertNotIn('model_messages',model)
+  self.assertEqual(model['display_name'],'user label');self.assertEqual(model['context_window'],1050000);self.assertEqual(pending,[])
+ def test_new_codex_metadata_needs_no_prompt_template(self):
+  out,pending=refresh.codex_update({'models':[]},{ROUTE:{**FRESH,'base_instructions':'remote','model_messages':{'instructions_template':'remote'}}},'work')
+  self.assertEqual(out['models'][0]['slug'],ROUTE);self.assertFalse(pending)
+  self.assertNotIn('base_instructions',out['models'][0]);self.assertNotIn('model_messages',out['models'][0])
  def test_opencode_preserves_provider_user_options_aliases_and_valid_effort(self):
   original={'model':'cpa-work/'+ROUTE,'user':True,'provider':{'cpa-work':{'options':{'apiKey':'private'},'models':{ROUTE:{'name':'my label','options':{'reasoningEffort':'high','temperature':.2},'variants':{'max':{'custom':1},'ultra':{'reasoningEffort':'ultra'}},'headers':{'custom':'value'}},'legacy-alias':{'name':'saved thread alias'}}}}}
   out=refresh.opencode_update(original,{ROUTE:FRESH},'work');provider=out['provider']['cpa-work'];model=provider['models'][ROUTE]

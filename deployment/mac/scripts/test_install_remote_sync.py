@@ -91,7 +91,7 @@ class InstallTests(unittest.TestCase):
             self.assertFalse((home/'.t3/userdata/settings.json').exists())
             snapshot = {'models':[{'slug':'personal/codex-oauth/fixture'}]}
             changes, _ = remote_sync.prepare_profile(root, 'personal', snapshot, 'https://nas.example',
-                False, settings['binaries'], settings.get('pi_native_catalog') is True, True)
+                settings['binaries'], settings.get('pi_native_catalog') is True, True)
             native = json.loads(changes[profile/'models.json']['after'])
             self.assertEqual([m['id'] for m in native['providers']['cliproxyapi']['models']],
                              ['personal/codex-oauth/fixture'])

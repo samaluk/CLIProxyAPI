@@ -38,7 +38,7 @@ class PolicyTests(unittest.TestCase):
             self.assertIn('tokens',json.loads((home/'.codex/auth.json').read_text()))
 
     def test_native_codex_cutover_preserves_history_settings_and_only_uses_gateway_auth(self):
-        raw = ('model = "gpt-6-astra"\nnotify = ["my-notification"]\n'
+        raw = ('model_catalog_json = "/old/prompt-catalog.json"\nmodel = "gpt-6-astra"\nnotify = ["my-notification"]\n'
                '[agents]\nmax_threads = 4\ndefault_subagent_model = "gpt-6-sol"\n'
                '[projects."/my/project"]\ntrust_level = "trusted"\n'
                '[model_providers.old]\nbase_url = "https://old.invalid"\n')
@@ -46,6 +46,7 @@ class PolicyTests(unittest.TestCase):
                                             'fixture-gateway-key', Path('/managed/catalog.json'),
                                             'personal/codex-oauth/gpt-6-astra')
         document = tomllib.loads(updated.decode())
+        self.assertNotIn('model_catalog_json', document)
         self.assertEqual(document['model_provider'], 'cpa-personal')
         self.assertEqual(document['forced_login_method'], 'api')
         self.assertEqual(document['cli_auth_credentials_store'], 'file')
@@ -74,11 +75,11 @@ class PolicyTests(unittest.TestCase):
                 path.write_text(json.dumps(value))
             snapshot = {'models': [{'slug': keep}, {'slug': hidden, 'visibility': 'hide'}]}
             with patch.object(remote_sync.catalogs, 'opencode_major_version', return_value=2):
-                changes, _ = remote_sync.prepare_profile(root, 'work', snapshot, 'https://nas.example', False,
+                changes, _ = remote_sync.prepare_profile(root, 'work', snapshot, 'https://nas.example',
                                                         pi_native=True, authoritative=True)
             codex = json.loads(changes[root/'work/catalogs/codex-catalog.json']['after'])
             self.assertEqual([m['slug'] for m in codex['models']], [keep])
-            self.assertEqual(codex['models'][0]['base_instructions'], 'trusted')
+            self.assertNotIn('base_instructions', codex['models'][0])
             opencode = json.loads(changes[root/'work/config/opencode/opencode.json']['after'])
             self.assertEqual(list(opencode['provider']), ['cpa-work'])
             self.assertEqual(list(opencode['provider']['cpa-work']['models']), [keep])

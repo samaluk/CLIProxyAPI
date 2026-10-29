@@ -85,12 +85,12 @@ class RemoteSyncTests(unittest.TestCase):
             root=Path(folder);path=root/'personal/catalogs/handy-models.json';path.parent.mkdir(parents=True)
             path.write_text('{}')
             snapshot={'models':[{'slug':'personal/codex-oauth/gpt-6-luna','base_instructions':'private prompt'}]}
-            changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
+            changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example')
             exported=json.loads(changes[path]['after'])
             self.assertEqual(exported['data'],[{'id':'personal/codex-oauth/gpt-6-luna','object':'model','owned_by':'cpa-personal'}])
             self.assertNotIn('private prompt',changes[path]['after'].decode())
             snapshot['models'].append({'slug':'work/foreign'})
-            with self.assertRaises(ValueError):remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
+            with self.assertRaises(ValueError):remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example')
 
     def test_t3_claude_refresh_is_scoped_guarded_and_preserves_custom_options(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -117,11 +117,11 @@ class RemoteSyncTests(unittest.TestCase):
             route='work/litellm/gpt-5.6-luna'
             path.write_text(json.dumps({'models':[{'slug':route,'base_instructions':'saved native prompt'}]}))
             snapshot={'models':[{'slug':route,'canonical_model_id':'gpt-6-luna'}]}
-            changes,_=remote_sync.prepare_profile(root,'work',snapshot,'https://nas.example',False)
+            changes,_=remote_sync.prepare_profile(root,'work',snapshot,'https://nas.example')
             model=json.loads(changes[path]['after'])['models'][0]
             self.assertEqual(model['slug'],route)
             self.assertEqual(model['display_name'],'W/LL · 6 Luna · via 5.6 Luna')
-            self.assertEqual(model['base_instructions'],'saved native prompt')
+            self.assertNotIn('base_instructions',model)
             self.assertEqual(remote_sync.model_label('work/litellm/qwen3-coder','qwen/qwen3-coder'),'W/LL · Qwen 3 Coder')
 
     def test_origins_reject_plaintext_remote_and_credential_redirect_inputs(self):
@@ -135,37 +135,38 @@ class RemoteSyncTests(unittest.TestCase):
         after = remote_sync.codex_endpoint(before, 'https://nas.example')
         self.assertEqual(after, before.replace('http://127.0.0.1:8317/v1', 'https://nas.example/v1'))
         self.assertEqual(remote_sync.codex_endpoint(after, 'https://nas.example'), after)
+        with_catalog = 'model_catalog_json="/managed/catalog.json"\n' + before
+        self.assertNotIn('model_catalog_json', remote_sync.codex_endpoint(with_catalog, 'https://nas.example'))
 
-    def test_reconciliation_preserves_saved_prompts_and_missing_routes(self):
+    def test_reconciliation_removes_prompt_fields_and_retains_missing_routes(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             path = root/'work/catalogs/codex-catalog.json';path.parent.mkdir(parents=True)
             path.write_text(json.dumps({'models':[{'slug':'work/litellm/m','base_instructions':'trusted','context_window':1000,'default_reasoning_level':'high'},{'slug':'work/litellm/old','base_instructions':'saved'}]}))
             snapshot = {'models':[{'slug':'work/litellm/m','context_window':2000,'supported_reasoning_levels':[],'default_reasoning_level':None,'base_instructions':'untrusted'}]}
-            changes, pending = remote_sync.prepare_profile(root,'work',snapshot,'https://nas.example',False)
+            changes, pending = remote_sync.prepare_profile(root,'work',snapshot,'https://nas.example')
             updated=json.loads(changes[path]['after'])
-            self.assertEqual(updated['models'][0]['base_instructions'],'trusted')
+            self.assertNotIn('base_instructions',updated['models'][0])
             self.assertEqual(updated['models'][0]['context_window'],2000)
             self.assertNotIn('default_reasoning_level',updated['models'][0])
             self.assertEqual(updated['models'][1]['slug'],'work/litellm/old')
             self.assertEqual(json.loads(path.read_text())['models'][0]['context_window'],1000)
             self.assertEqual(pending,[])
 
-    def test_new_prompt_template_requires_explicit_gateway_trust(self):
+    def test_new_model_is_registered_without_copying_template_text(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);path=root/'personal/catalogs/codex-catalog.json';path.parent.mkdir(parents=True);path.write_text('{"models":[]}')
-            snapshot={'models':[{'slug':'personal/codex-oauth/new','canonical_model_id':'native','context_window':2000}], 'templates':[{'slug':'native','base_instructions':'operator trusted native template'}]}
-            changes,pending=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
-            self.assertEqual(pending,['personal/codex-oauth/new'])
-            changes,pending=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',True)
+            snapshot={'models':[{'slug':'personal/codex-oauth/new','canonical_model_id':'native','context_window':2000}], 'templates':[{'slug':'native','base_instructions':'operator template'}]}
+            changes,pending=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example')
             self.assertEqual(pending,[])
-            self.assertEqual(json.loads(changes[path]['after'])['models'][0]['base_instructions'],'operator trusted native template')
+            model=json.loads(changes[path]['after'])['models'][0]
+            self.assertEqual(model['slug'],'personal/codex-oauth/new');self.assertNotIn('base_instructions',model)
 
     def test_endpoint_files_apply_in_same_validated_transaction(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder).resolve();path=root/'personal/codex/config.toml';path.parent.mkdir(parents=True)
             before='[model_providers.cpa-personal]\nbase_url="http://127.0.0.1:8317/v1"\n';path.write_text(before)
-            changes,_=remote_sync.prepare_profile(root,'personal',{'models':[{'slug':'personal/test/model'}]},'https://nas.example',False)
+            changes,_=remote_sync.prepare_profile(root,'personal',{'models':[{'slug':'personal/test/model'}]},'https://nas.example')
             with self.assertRaises(ValueError):remote_sync.catalogs.validate_targets(changes,root)
             remote_sync.catalogs.apply_changes(changes,root,root/'backups',extra_paths={path})
             self.assertIn('https://nas.example/v1',path.read_text())
@@ -177,7 +178,7 @@ class RemoteSyncTests(unittest.TestCase):
             model=dict(slug='personal/codex-oauth/example',base_instructions='trusted',**{x:True for x in fields})
             p.write_text(json.dumps({'models':[model]}))
             snapshot={'models':[dict(slug=model['slug'],**{x:False for x in fields})]}
-            changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False)
+            changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example')
             updated=json.loads(changes[p]['after'])['models'][0]
             self.assertTrue(all(updated[x] is False for x in fields))
 
@@ -188,7 +189,7 @@ class RemoteSyncTests(unittest.TestCase):
             route='personal/commandcode/deepseek-v4.1-flash'
             snapshot={'models':[{'slug':route,'supported_reasoning_levels':[{'effort':'high'}]}]}
             with patch.object(remote_sync.catalogs,'opencode_major_version',return_value=2) as version:
-                changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',False,{'opencode':'/stock/opencode'})
+                changes,_=remote_sync.prepare_profile(root,'personal',snapshot,'https://nas.example',{'opencode':'/stock/opencode'})
             version.assert_called_once_with('/stock/opencode')
             variants=json.loads(changes[path]['after'])['provider']['cpa-personal']['models'][route]['variants']
             self.assertEqual(variants,{'high':{'reasoningEffort':'high'}})

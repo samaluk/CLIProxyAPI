@@ -302,7 +302,8 @@ def install(root, endpoint, binaries, schedule=True, pi_selector=False, t3_openc
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     backup = state / 'install-backups' / stamp
     source = Path(__file__).resolve().parent
-    config.update(endpoint=endpoint, trust_gateway_templates=True, binaries=binaries,
+    config.pop('trust_gateway_templates', None)
+    config.update(endpoint=endpoint, binaries=binaries,
                   runtime_path=config.get('runtime_path', os.environ.get('PATH', '/usr/local/bin:/usr/bin:/bin')))
     if proxy_only:
         config.update(proxy_only=True, authoritative_catalog=True, manage_default_homes=True,

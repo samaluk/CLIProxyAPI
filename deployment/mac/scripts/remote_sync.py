@@ -124,6 +124,7 @@ def fetch(endpoint, key, scope, cached=None, authoritative=False):
         if not isinstance(route, str) or not route.startswith(scope + '/') or route in seen:
             raise ValueError('Foreign or duplicate route; no client changes')
         seen.add(route)
+    result.pop('templates', None)
     result['client_identity'] = identity
     return result
 
@@ -145,11 +146,12 @@ def codex_endpoint(raw, endpoint):
         result, count = re.subn(pattern, replace, result, count=1)
         if count != 1:
             raise ValueError('Unsupported CPA TOML provider table; retain configuration')
+    result = re.sub(r'(?m)^model_catalog_json\s*=.*\n?', '', result)
     tomllib.loads(result)
     return result
 
 
-def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=None, pi_native=False, authoritative=False):
+def prepare_profile(root, scope, snapshot, endpoint, binaries=None, pi_native=False, authoritative=False):
     profile = root / scope
     live = {m['slug']: catalogs.safe_model(m) for m in snapshot['models']
             if not authoritative or m.get('visibility') != 'hide'}
@@ -175,19 +177,7 @@ def prepare_profile(root, scope, snapshot, endpoint, trust_templates, binaries=N
         before = catalogs.read(path)
         if authoritative:
             before['models'] = [m for m in before['models'] if m['slug'] in live]
-        template_path = root / 'codex-desktop/trusted-templates.json'
-        templates = catalogs.read(template_path) if template_path.is_file() else {'models': []}
-        if trust_templates:
-            # Deliberate administrator trust in this authenticated gateway's
-            # separately maintained native template file, never generic metadata.
-            templates = copy.deepcopy(templates)
-            known = {m['slug'] for m in templates['models']}
-            identities = {m.get('canonical_model_id') for m in live.values()}
-            for model in snapshot.get('templates', []):
-                if model.get('slug') in identities and model['slug'] not in known and isinstance(model.get('base_instructions'), str):
-                    templates['models'].append(model)
-                    known.add(model['slug'])
-        updated, pending = catalogs.codex_update(before, live, scope, templates)
+        updated, pending = catalogs.codex_update(before, live, scope)
         for model in updated['models']:
             if model['slug'].startswith(scope + '/'):
                 model['display_name'] = model_label(model['slug'], live.get(model['slug'], {}).get('canonical_model_id'))
@@ -322,10 +312,10 @@ def main():
             phase('fetch-catalog', scope=scope)
             snapshot = fetch(endpoint, key_path.read_text().strip(), scope, cache, settings.get('authoritative_catalog') is True)
             phase('prepare-profile')
-            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('trust_gateway_templates') is True, settings.get('binaries'), settings.get('pi_native_catalog') is True, settings.get('authoritative_catalog') is True)
+            current, pending = prepare_profile(root, scope, snapshot, endpoint, settings.get('binaries'), settings.get('pi_native_catalog') is True, settings.get('authoritative_catalog') is True)
             changes.update(current); snapshots[cache_path] = snapshot
             receipts.append({'scope': scope, 'revision': snapshot['revision'], 'modelCount': len(snapshot['models']),
-                             'deferred': snapshot.get('deferred', []), 'missingTrustedTemplates': pending})
+                             'deferred': snapshot.get('deferred', [])})
         if not receipts:
             raise ValueError('No scoped profile keys installed')
         extra_paths = {root / scope / relative for scope in ('personal', 'work')

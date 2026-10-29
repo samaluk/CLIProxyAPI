@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Preview live capability reconciliation; --apply updates only scoped catalogs.
 
-Provider IDs, defaults, prompts, credentials and user options are preserved.
+Provider IDs, defaults, credentials and user options are preserved.
+Prompt templates are not part of capability reconciliation.
 Pi uses its installed stock mapper; its cache remains combined because the stock
 provider has no scope filter. Missing routes are retained unless explicitly retired.
 """
@@ -19,7 +20,6 @@ CODEX_FIELDS = ('context_window', 'max_context_window', 'max_tokens', 'input_mod
 PI_FIELDS = ('reasoning', 'input', 'contextWindow', 'maxTokens', 'thinkingLevelMap')
 PI_THINKING_LEVELS = ('off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')
 EFFORTS = ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')
-PROMPT_FIELDS = ('base_instructions', 'model_messages', 'include_apps_usage_instructions', 'include_plugin_usage_instructions', 'include_skills_usage_instructions')
 TIER_NAMES = {'default': 'Standard', 'auto': 'Automatic', 'priority': 'Fast', 'fast': 'Fast', 'ultrafast': 'Ultrafast', 'flex': 'Flex'}
 
 def encoded(obj): return (json.dumps(obj, indent=2, ensure_ascii=False) + '\n').encode()
@@ -72,31 +72,6 @@ def efforts(model):
 def output_limit(model):
     return next((model[k] for k in ('max_tokens', 'max_output_tokens', 'max_completion_tokens') if isinstance(model.get(k), int) and model[k] > 0), None)
 
-def template_catalog_from_native(trusted, native):
-    """Add exact missing templates from a read-only local native cache.
-
-    Existing reviewed templates and model prompts are never overwritten. This
-    function is never passed the proxy response or another remote catalog.
-    """
-    result = copy.deepcopy(trusted)
-    models = result.setdefault('models', [])
-    known = {m['slug'] for m in models}
-    added = []
-    for model in native.get('models', []):
-        slug = model.get('slug')
-        messages = model.get('model_messages')
-        prompt = messages.get('instructions_template') if isinstance(messages, dict) else None
-        if not isinstance(slug, str) or slug in known or not isinstance(prompt, str) or not prompt.strip():
-            continue
-        value = copy.deepcopy(model)
-        value['base_instructions'] = prompt
-        value.setdefault('supports_parallel_tool_calls', True)
-        models.append(value)
-        known.add(slug)
-        added.append(slug)
-    return result, sorted(added)
-
-
 def registration_candidates(native, catalogs, known_routes):
     """Report new native IDs missing upstream; never assign account ownership."""
     represented = {m.get('canonical_model_id', m['slug']) for models in catalogs.values() for m in models}
@@ -108,54 +83,35 @@ def registration_candidates(native, catalogs, known_routes):
                    and m['slug'] not in represented and m['slug'] not in known})
 
 
-def codex_update(document, live, scope, templates=None):
-    result = copy.deepcopy(document)
-    existing = {m['slug'] for m in result['models']}
-    # New prompt-bearing entries need an explicit, reviewed local template. A
-    # source name resembling a native model is not enough evidence to copy one.
-    pending = []
-    templates = {m['slug']: m for m in (templates or {}).get('models', [])}
+def codex_update(document, live, scope):
+    """Keep local capability metadata; Codex uses its own built-in instructions.
+
+    This file is not passed as model_catalog_json: that native format requires
+    instruction text. No remote or saved prompt fields enter this projection.
+    """
+    models = {}
+    for previous in document.get('models', []):
+        route = previous['slug']
+        if route.startswith(scope + '/') and route not in RETIRED:
+            value = safe_model(previous)
+            value['display_name'] = previous.get('display_name', model_label(route))
+            models[route] = value
     for route, fresh in live.items():
-        if not route.startswith(scope + '/') or route in existing or route in RETIRED: continue
-        template = templates.get(fresh.get('canonical_model_id'))
-        if template is None:
-            pending.append(route)
+        if not route.startswith(scope + '/') or route in RETIRED:
             continue
-        model = copy.deepcopy(template)
-        model.update(slug=route, display_name=model_label(route), visibility='list')
-        result['models'].append(model)
-    result['models'] = [m for m in result['models'] if m['slug'] not in RETIRED]
-    for model in result['models']:
-        route = model['slug']
-        if route not in live or not route.startswith(scope + '/'): continue
-        fresh = live[route]
-        for name in CODEX_FIELDS:
-            if name in fresh:
-                if name == 'default_reasoning_level' and fresh[name] is None:
-                    model.pop(name, None)
-                elif name == 'supported_reasoning_levels':
-                    old_levels = {x['effort']: x for x in model.get(name, [])}
-                    model[name] = [copy.deepcopy(old_levels.get(x['effort'], x)) for x in fresh[name]]
-                elif name == 'service_tiers':
-                    # Only IDs cross the remote trust boundary. Keep existing
-                    # local labels, and use local names for newly declared tiers.
-                    previous = {x['id']: x for x in model.get(name, [])}
-                    model[name] = []
-                    for tier in fresh[name]:
-                        value = copy.deepcopy(previous.get(tier['id'], {'id': tier['id']}))
-                        value.setdefault('name', TIER_NAMES.get(tier['id'], tier['id']))
-                        value.setdefault('description', value['name'] + ' service tier')
-                        model[name].append(value)
-                    if 'additional_speed_tiers' not in fresh:
-                        ids = {x['id'] for x in fresh[name]}
-                        speeds = (['fast'] if ids & {'fast', 'priority'} else []) + (['ultrafast'] if 'ultrafast' in ids else [])
-                        if speeds or 'additional_speed_tiers' in model:
-                            model['additional_speed_tiers'] = speeds
-                else:
-                    model[name] = copy.deepcopy(fresh[name])
-        limit = output_limit(fresh)
-        if limit is not None: model['max_tokens'] = limit
-    return result, pending
+        value = models.setdefault(route, {'slug': route})
+        value.update(safe_model(dict(fresh, slug=route)))
+        if 'service_tiers' in fresh:
+            value['service_tiers'] = [dict(id=tier['id'], name=TIER_NAMES.get(tier['id'], tier['id']),
+                description=TIER_NAMES.get(tier['id'], tier['id']) + ' service tier') for tier in value['service_tiers']]
+            if 'additional_speed_tiers' not in fresh:
+                ids = {tier['id'] for tier in value['service_tiers']}
+                value['additional_speed_tiers'] = (['fast'] if ids & {'fast', 'priority'} else []) + (['ultrafast'] if 'ultrafast' in ids else [])
+        if fresh.get('default_reasoning_level', 'absent') is None:
+            value.pop('default_reasoning_level', None)
+        value.setdefault('display_name', model_label(route, fresh.get('canonical_model_id')))
+        value['visibility'] = 'list'
+    return {'models': list(models.values())}, []
 
 def opencode_major_version(binary=None):
     binary = binary or shutil.which('opencode')
@@ -403,7 +359,6 @@ def main():
     parser.add_argument('--scope', action='append', choices=SCOPES)
     parser.add_argument('--base-url', default='http://127.0.0.1:8317')
     parser.add_argument('--report', type=pathlib.Path, default=ROOT/'artifacts/update-2026-09-20/scoped-catalog-preview.json')
-    parser.add_argument('--template-catalog', type=pathlib.Path, default=PROFILES/'codex-desktop/trusted-templates.json', help='Read-only trusted local native templates; exact canonical ID match only')
     args = parser.parse_args()
     validate_origin(args.base_url)
     main_config = pathlib.Path.home()/'.codex/config.toml'
@@ -411,7 +366,6 @@ def main():
     forbidden = [main_config, pathlib.Path(parsed['model_catalog_json']).expanduser()] if parsed.get('model_catalog_json') else [main_config]
     protected = {p: p.read_bytes() for p in forbidden if p.is_file()}
     if not args.report.resolve().is_relative_to((ROOT/'artifacts').resolve()): raise ValueError('Report must stay inside lab artifacts')
-    templates = read(args.template_catalog) if args.template_catalog.is_file() else {}
     native = {}; native_cache_status = 'not-used-with-custom-main-provider'
     native_cache = pathlib.Path.home()/'.codex/models_cache.json'
     if parsed.get('model_provider') in (None, 'openai') and not parsed.get('model_catalog_json'):
@@ -424,9 +378,7 @@ def main():
                     native_cache_status = 'read-only'
             except (OSError, ValueError):
                 native_cache_status = 'unreadable'
-    templates, native_template_ids = template_catalog_from_native(templates, native)
-    # Client version is not a prompt template. A future main-Codex gateway
-    # cutover must not disable authenticated provider discovery.
+    # Preserve authenticated capability discovery without managing instructions.
     discovery_client = native
     if not discovery_client and native_cache.is_file():
         try:
@@ -449,12 +401,11 @@ def main():
             pending = []
             known_routes.update(projection(document, kind, scope))
             if kind == 'codex':
-                updated, pending = codex_update(document, live, scope, templates)
+                updated, pending = codex_update(document, live, scope)
             elif kind == 'opencode': updated = opencode_update(document, live, scope, major_version=opencode_major_version())
             else: updated = pi_update(document, mapper, live)
             report = {'scope': scope, 'harness': kind, 'path': str(path), **change_report(document, updated, kind, scope)}
             report['retainedMissingRoutes'] = sorted(k for k in projection(updated, kind, scope) if k not in live)
-            if pending: report['newCodexRoutesNeedingTrustedTemplate'] = pending
             if kind == 'pi':
                 report.update(stockMapperVersion=version, scopeFilter='unsupported; combined cache preserved', nativeThinkingLevels=native_levels)
                 report['providerEffortsWithoutNativeCLILevel'] = sorted({level for value in live.values() for level in efforts(value) if native_levels is not None and ('off' if level == 'none' else level) not in native_levels})
@@ -476,9 +427,7 @@ def main():
         'missingFieldsRetainExistingValues': True,
     } for m in models} for scope, models in snapshot.items()}
     result['nativeCacheStatus'] = native_cache_status
-    result['nativeTemplatesAvailableInMemory'] = native_template_ids
     result['nativeModelsNeedingProxyRegistration'] = registration_candidates(native, snapshot, known_routes)
-    result['newCodexRoutesNeedingTrustedTemplate'] = sorted({route for report in reports for route in report.get('newCodexRoutesNeedingTrustedTemplate', [])})
     result['advertisedServiceTiers'] = {scope: sorted({tier['id'] for model in models if model['slug'].startswith(scope + '/') for tier in model.get('service_tiers', [])}) for scope, models in snapshot.items()}
     if result['nativeModelsNeedingProxyRegistration']:
         result['discoveryAction'] = 'Register the model on its verified account in Easy and refresh the proxy registry. Client catalog refresh only reconciles already exported routes; native cache presence does not prove CPA account access.'
@@ -488,7 +437,7 @@ def main():
         result['backup'] = str(apply_changes(changes, PROFILES, ROOT/'private/catalog-refresh', forbidden))
     if any(p.read_bytes() != raw for p,raw in protected.items()): raise RuntimeError('Main Codex changed externally during reconciliation')
     args.report.write_bytes(encoded(result))
-    summary = {k: result.get(k) for k in ('mode', 'filesChanged', 'backup', 'catalogCounts', 'advertisedServiceTiers', 'nativeModelsNeedingProxyRegistration', 'newCodexRoutesNeedingTrustedTemplate')}
+    summary = {k: result.get(k) for k in ('mode', 'filesChanged', 'backup', 'catalogCounts', 'advertisedServiceTiers', 'nativeModelsNeedingProxyRegistration')}
     summary['report'] = str(args.report)
     if result.get('discoveryAction'): summary['discoveryAction'] = result['discoveryAction']
     print(json.dumps(summary, indent=2), flush=True)

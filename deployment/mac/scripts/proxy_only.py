@@ -37,7 +37,8 @@ def provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage
     sections = re.split(r'(?m)(?=^\[)', raw)
     raw = ''.join(section for section in sections if not re.match(r'^\[model_providers\.', section))
     values = {'model_provider': 'cpa-' + scope, 'model': model,
-              'model_catalog_json': str(catalog_path), 'cli_auth_credentials_store': 'file'}
+              'cli_auth_credentials_store': 'file'}
+    raw = re.sub(r'(?m)^model_catalog_json\s*=.*\n?', '', raw)
     if native_usage:
         raw = re.sub(r'(?m)^forced_login_method\s*=.*\n?', '', raw)
     else:
@@ -106,12 +107,16 @@ def default_home_targets(root, settings, prepared=None, home=None, snapshots=Non
         document = tomllib.loads(raw)
         scoped = tomllib.loads(read_scoped(profile / 'codex/config.toml').decode())
         catalog_path = profile / 'catalogs/codex-catalog.json'
-        allowed = {m['slug'] for m in json.loads(read_scoped(catalog_path))['models']}
+        definitions = {m['slug']: m for m in json.loads(read_scoped(catalog_path))['models']}
+        allowed = set(definitions)
         model = choose_route(document.get('model'), scope, allowed, scoped['model'])
         native_usage = native_codex_usage(settings, scope)
         scoped_provider = scoped.get('model_providers', {}).get(scoped.get('model_provider'), {})
         updated = provider_config(raw, scope, endpoint, key, catalog_path, model, native_usage,
                                   supports_websockets=scoped_provider.get('supports_websockets')).decode()
+        context = definitions.get(model, {}).get('context_window')
+        if type(context) is int and context > 0:
+            updated = root_values(updated, {'model_context_window': context})
         if 'model_reasoning_effort' in scoped:
             updated = root_values(updated, {'model_reasoning_effort': scoped['model_reasoning_effort']})
         limits = {k: v for k, v in scoped.get('agents', {}).items()

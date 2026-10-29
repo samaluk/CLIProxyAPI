@@ -21,13 +21,13 @@ shared by multiple accounts is deferred because its account capability set is
 ambiguous. Other providers use the gateway's route metadata. Missing fields keep
 saved client fallbacks; they are not evidence of an entitlement.
 
-Native prompt templates are separate from capability data. An administrator
-provisions `trusted-templates.json` privately. Clients explicitly trust that file
-through the installed gateway configuration; generic proxy prose never replaces
-native instructions. New Codex entries require an exact canonical template.
-Models missing provider discovery or a trusted template remain in the sync
-receipt for follow-up. Register newly released models on the verified account
-in the gateway first. Catalog refresh does not invent routes.
+Harness instructions remain owned by each installed harness. Client refresh
+projects route IDs and capability metadata; it does not copy or assign base
+prompts. Every verified scoped model can be registered without a matching
+prompt template. Codex's optional `model_catalog_json` format requires instruction
+text, so the client does not inject it. Terminal Codex can use a custom route
+with `-m`; the Machines T3 settings adapter projects the full scoped model list
+and controls separately through the supported API.
 
 ## Install on a client
 
@@ -87,7 +87,7 @@ The server caches discovery for one minute and clients use conditional ETags.
 Client caches are bound to the origin, scope and downstream key. HTTP failures,
 redirects, invalid/empty catalogs, wrong-scope routes and concurrent file edits
 fail closed. Saved files remain available. `sync-state/status.json` records the
-last successful run, revision, deferred routes and missing templates. Scheduler
+last successful run, revision and deferred routes. Scheduler
 logs record failed runs. Backups and installation restore manifests stay private
 under `sync-state/`.
 
@@ -177,7 +177,7 @@ Keep Easy's `start-core-on-launch` disabled while the NAS owns refresh. A local 
 
 Both NAS containers are healthy. Personal Codex OAuth and Work LiteLLM passed streamed tool calls and continuations. Cross-scope requests returned 403; an unauthenticated catalog request returned 401. Codex, Claude Code, OpenCode and Pi managed Mac launchers completed inference through the NAS; Debian's scoped Codex launcher did too. The management page and authenticated localhost relay returned 200. Mac launchd and Debian systemd user timers are installed.
 
-The Work Claude credential returns `invalid_grant` and requires account reauthentication. Two Personal image routes are absent from native account discovery, and Work DeepSeek v4.1 Flash lacks a trusted Codex prompt template; sync reports these without inventing definitions. Offline computers still need client installation and acceptance. Native Windows scheduling remains unimplemented. Cursor and Antigravity retain native T3 paths. T3/mobile saved-thread UI and concurrent NAS load have not been revalidated by these CLI checks.
+The Work Claude credential returns `invalid_grant` and requires account reauthentication. Two Personal image routes are absent from native account discovery; sync reports these without inventing account access. Models are not excluded for missing prompt templates. Offline computers still need client installation and acceptance. Native Windows scheduling remains unimplemented. Cursor and Antigravity retain native T3 paths. T3/mobile saved-thread UI and concurrent NAS load have not been revalidated by these CLI checks.
 
 ## Pi account selection on a shared machine
 
