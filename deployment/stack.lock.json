@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-10-27",
+  "reviewed_at": "2026-11-08",
   "components": [
     {
       "repository": "samaluk/CLIProxyAPI",
       "upstream": "https://github.com/router-for-me/CLIProxyAPI",
-      "upstream_ref": "main",
-      "upstream_commit": "d946c4fba6fc9a5cfbca1f3d85184d62ad2fb683",
-      "branch": "release/20261023-upstream-defaults",
-      "commit": "5b5749caba60c876b418f3618c1bc3d8b6a0aeed",
+      "upstream_ref": "dev",
+      "upstream_commit": "681ce41b6e44c45b15b79378b003909d6ba29e68",
+      "branch": "release/20261108-upstream-defaults",
+      "commit": "4fb41a1297a5339650e184502d9621905f83f167",
       "role": "gateway",
-      "version": "8.0.40-review.5b5749c.20261023"
+      "version": "8.0.61-review.4fb41a1.20261108"
     },
     {
       "repository": "samaluk/EasyCLIProxyAPI",

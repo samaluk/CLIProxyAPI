@@ -1,5 +1,23 @@
 # Contributions and deployed forks
 
+## November 8 runtime refresh
+
+Core release `release/20261108-upstream-defaults` contains upstream main/dev
+`681ce41b` (8.0.61), all nine existing core patches, and compatibility commit
+`4fb41a12`. The original release head is retained in immutable tag
+`backup/20261108-pre-update`. Existing contribution PR branches are not rewritten.
+
+Rebase resolutions retain upstream Responses context handling, indexed
+web-search capabilities, RPC Retry-After behavior and plugin locales alongside
+the custom metadata, effort, cooldown, update-revision and terminal policy
+semantics. Compatibility tests preserve fetched Antigravity limits through
+shared discovery, independent cloning and JSON-backed persistent caches.
+
+OpenCode Go, CommandCode and account-binding upstream heads are unchanged;
+their deployed contribution commits and binary hashes remain unchanged.
+`Dockerfile.core` replaces only the core from the exact October 27 image.
+Desktop Easy and optional Pi/T3 layers remain outside this runtime update.
+
 ## October 27 Gemini/Argon dogfood
 
 The Go plugin's `feature/gemini-argon` branch is based directly on upstream
