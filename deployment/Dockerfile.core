@@ -1,0 +1,16 @@
+FROM ghcr.io/samaluk/cpa-gateway:20261027-argon-dogfood-1@sha256:39e01aa72d29a0783b9a9eb21b2bd0eb2c661baa38848bf39fade2c49a433517 AS previous
+
+FROM golang:1.26.10-bookworm@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS build
+RUN apt-get update && apt-get install -y --no-install-recommends python3 build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY --from=previous /opt/cpa/provenance.json base-provenance.json
+COPY stack.lock.json source_manifest.py build_core.py ./
+COPY .sources/ .sources/
+RUN python3 build_core.py
+
+FROM previous
+ARG PACKAGING_COMMIT
+LABEL io.cpa.packaging.revision=$PACKAGING_COMMIT
+COPY --from=build /out/cli-proxy-api /opt/cpa/cli-proxy-api
+COPY --from=build /out/provenance.json /opt/cpa/provenance.json
+COPY stack.lock.json /opt/cpa/stack.lock.json

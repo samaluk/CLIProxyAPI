@@ -1,5 +1,40 @@
 # Start here
 
+## November 8 upstream refresh
+
+`deployment/20261108-upstream-defaults` updates only the core to
+`8.0.61-review.4fb41a1.20261108`. Its release branch contains upstream main and
+dev at `681ce41b6e44c45b15b79378b003909d6ba29e68`, all nine existing contribution
+commits, and one compatibility follow-up. That follow-up uses upstream's ojson
+parser and preserves fetched Antigravity token limits through the newly shared
+discovery and persistent-cache path.
+
+The three plugin upstreams are unchanged. `Dockerfile.core` builds the exact
+locked core export with Go 1.26.10 Bookworm and `GOAMD64=v1`, replacing only the
+core binary and its provenance entry in the immutable October 27 image below.
+The gateway and every native plugin remain byte-identical, including the native
+image fixes and Argon support. Easy, Pi and T3 pins are historical client-layer
+references, not NAS runtime dependencies.
+
+Build with `docker build -f Dockerfile.core --build-arg PACKAGING_COMMIT=<full-sha>`
+from the prepared deployment context. Use a new unique tag, publish its digest,
+then update both Homelab image pins together through a PR. The Homelab Compose
+pin is authoritative for deployment status; source preparation is not a rollout.
+
+The complete macOS core suite passes, as do focused race checks. Go 1.27 vet
+reports an unchanged upstream test copying `sync.Once` in
+`internal/pluginhost/host_test.go`; do not describe that check as clean. Linux
+build, NAS synthetic preflight and live acceptance must be recorded separately.
+
+Back up the private data directory before deployment. Upstream now stores
+Codex refresh claims and receipts in `auth/.codex-refresh/`; these contain
+credentials and must remain private and persistent with the auth directory.
+Never restore old OAuth state or delete journal claims to recover a request.
+Review unresolved claims before downgrading to a pre-journal core. Preserve
+existing scopes, bindings, aliases and main client configuration.
+
+## October 27 release (historical)
+
 The October 27 Argon dogfood layer changes only the locked OpenCode Go plugin.
 `Dockerfile.go-plugin` builds its exact clean source using the contributor-required
 debug tag and stamps `0.2.2-argon.20261027.1`. The base is the immutable October 24
