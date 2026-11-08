@@ -66,8 +66,8 @@ func ConvertOpenAIResponsesRequestToClaudeWithCompatContext(ctx context.Context,
 func convertOpenAIResponsesRequestToClaude(ctx context.Context, modelName string, inputRawJSON []byte, stream, preserveEmptyThinkingBlocks, toolSearch bool) ([]byte, error) {
 	// Responses permits a plain input string as shorthand for a user message.
 	// Normalize it before array-based message and tool-history processing.
-	if input := gjson.GetBytes(inputRawJSON, "input"); input.Type == gjson.String {
-		inputRawJSON, _ = sjson.SetBytes(inputRawJSON, "input", []map[string]any{
+	if input := ojson.GetBytes(inputRawJSON, "input"); input.Type == ojson.String {
+		inputRawJSON, _ = ojson.SetBytes(inputRawJSON, "input", []map[string]any{
 			{"type": "message", "role": "user", "content": input.String()},
 		})
 	}

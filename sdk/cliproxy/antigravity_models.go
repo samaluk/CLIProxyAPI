@@ -81,10 +81,7 @@ var (
 	antigravityProbeSlots       = make(chan struct{}, modelRegistrationMaxWorkersPerCategory)
 )
 
-type antigravityModelLimits struct {
-	ContextLength       int `json:"maxTokens"`
-	MaxCompletionTokens int `json:"maxOutputTokens"`
-}
+type antigravityModelLimits = sdkauth.AntigravityModelLimits
 
 type antigravityModelCapabilityHints struct {
 	ModelLimits       map[string]antigravityModelLimits
@@ -223,6 +220,7 @@ func (s *Service) persistAntigravityCapabilityHints(ctx context.Context, auth *c
 
 func buildPersistedAntigravityCapabilityHintsValue(project, endpoint string, hints antigravityModelCapabilityHints) map[string]any {
 	return sdkauth.BuildPersistedAntigravityCapabilityHints(project, endpoint, sdkauth.AntigravityModelCapabilityHints{
+		ModelLimits:       hints.ModelLimits,
 		ModelIDs:          hints.ModelIDs,
 		WebSearchModelIDs: hints.WebSearchModelIDs,
 	})
@@ -234,6 +232,7 @@ func parsePersistedAntigravityCapabilityHints(metadata map[string]any, expectedP
 		return antigravityModelCapabilityHints{}, false
 	}
 	return antigravityModelCapabilityHints{
+		ModelLimits:       hints.ModelLimits,
 		ModelIDs:          hints.ModelIDs,
 		WebSearchModelIDs: hints.WebSearchModelIDs,
 	}, true
@@ -374,6 +373,7 @@ func (s *Service) probeAntigravityModelCapabilityHints(ctx context.Context, auth
 		UserAgent:   userAgent,
 	})
 	return antigravityModelCapabilityHints{
+		ModelLimits:       hints.ModelLimits,
 		ModelIDs:          hints.ModelIDs,
 		WebSearchModelIDs: hints.WebSearchModelIDs,
 	}, status
@@ -441,22 +441,7 @@ func parseAntigravityModelCapabilityHints(body []byte) (antigravityModelCapabili
 	if !ok {
 		return antigravityModelCapabilityHints{}, false
 	}
-	var parsed struct {
-		Models map[string]json.RawMessage `json:"models"`
-	}
-	if json.Unmarshal(body, &parsed) != nil {
-		return antigravityModelCapabilityHints{}, false
-	}
-	limits := make(map[string]antigravityModelLimits, len(parsed.Models))
-	for id, raw := range parsed.Models {
-		var value antigravityModelLimits
-		if json.Unmarshal(raw, &value) == nil && (value.ContextLength > 0 || value.MaxCompletionTokens > 0) {
-			if normalized := normalizeAntigravityFetchedModelID(id); normalized != "" {
-				limits[normalized] = value
-			}
-		}
-	}
-	return antigravityModelCapabilityHints{WebSearchModelIDs: hints.WebSearchModelIDs, ModelIDs: hints.ModelIDs, ModelLimits: limits}, true
+	return antigravityModelCapabilityHints{WebSearchModelIDs: hints.WebSearchModelIDs, ModelIDs: hints.ModelIDs, ModelLimits: hints.ModelLimits}, true
 }
 
 func applyAntigravityFetchedModelCapabilities(models []*ModelInfo, hints antigravityModelCapabilityHints) []*ModelInfo {

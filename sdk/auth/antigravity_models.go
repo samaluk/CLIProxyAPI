@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"maps"
 	"net/http"
@@ -37,7 +38,13 @@ const (
 )
 
 // AntigravityModelCapabilityHints holds normalized per-account model IDs and web-search capability IDs.
+type AntigravityModelLimits struct {
+	ContextLength       int `json:"maxTokens"`
+	MaxCompletionTokens int `json:"maxOutputTokens"`
+}
+
 type AntigravityModelCapabilityHints struct {
+	ModelLimits       map[string]AntigravityModelLimits
 	WebSearchModelIDs map[string]struct{}
 	// Nil means unknown; an empty non-nil set is an authoritative empty catalog.
 	ModelIDs map[string]struct{}
@@ -46,6 +53,7 @@ type AntigravityModelCapabilityHints struct {
 // Clone returns a deep copy of the capability hints.
 func (h AntigravityModelCapabilityHints) Clone() AntigravityModelCapabilityHints {
 	return AntigravityModelCapabilityHints{
+		ModelLimits:       maps.Clone(h.ModelLimits),
 		WebSearchModelIDs: maps.Clone(h.WebSearchModelIDs),
 		ModelIDs:          maps.Clone(h.ModelIDs),
 	}
@@ -189,6 +197,7 @@ func ParseAntigravityModelCapabilityHints(body []byte) (AntigravityModelCapabili
 
 	modelsResult := top.Get("models")
 	var modelIDs map[string]struct{}
+	var modelLimits map[string]AntigravityModelLimits
 	if modelsResult.Exists() && modelsResult.Type != ojson.Null {
 		if !modelsResult.IsObject() {
 			return AntigravityModelCapabilityHints{}, false
@@ -198,14 +207,23 @@ func ParseAntigravityModelCapabilityHints(body []byte) (AntigravityModelCapabili
 			return AntigravityModelCapabilityHints{}, false
 		}
 		modelIDs = make(map[string]struct{}, len(modelMap))
-		for id := range modelMap {
+		modelLimits = make(map[string]AntigravityModelLimits)
+		for id, value := range modelMap {
 			if normalized := NormalizeAntigravityModelID(id); normalized != "" {
 				modelIDs[normalized] = struct{}{}
+				limits := AntigravityModelLimits{
+					ContextLength:       max(0, int(value.Get("maxTokens").Int())),
+					MaxCompletionTokens: max(0, int(value.Get("maxOutputTokens").Int())),
+				}
+				if limits.ContextLength > 0 || limits.MaxCompletionTokens > 0 {
+					modelLimits[normalized] = limits
+				}
 			}
 		}
 	}
 
 	return AntigravityModelCapabilityHints{
+		ModelLimits:       modelLimits,
 		WebSearchModelIDs: webSearchModels,
 		ModelIDs:          modelIDs,
 	}, true
@@ -230,6 +248,9 @@ func BuildPersistedAntigravityCapabilityHints(project, endpoint string, hints An
 	}
 	value := map[string]any{
 		"model_ids": modelItems,
+	}
+	if len(hints.ModelLimits) > 0 {
+		value["model_limits"] = maps.Clone(hints.ModelLimits)
 	}
 	if project = strings.TrimSpace(project); project != "" {
 		value["project_id"] = project
@@ -293,9 +314,22 @@ func ParsePersistedAntigravityCapabilityHints(metadata map[string]any, expectedP
 		}
 		webSearchModels = parsedWebSearch
 	}
+	var modelLimits map[string]AntigravityModelLimits
+	if rawLimits := rawMap["model_limits"]; rawLimits != nil {
+		encoded, errMarshal := json.Marshal(rawLimits)
+		if errMarshal != nil || json.Unmarshal(encoded, &modelLimits) != nil {
+			return AntigravityModelCapabilityHints{}, false
+		}
+		for id, limits := range modelLimits {
+			if _, exists := modelIDs[id]; !exists || limits.ContextLength < 0 || limits.MaxCompletionTokens < 0 {
+				delete(modelLimits, id)
+			}
+		}
+	}
 	return AntigravityModelCapabilityHints{
 		ModelIDs:          modelIDs,
 		WebSearchModelIDs: webSearchModels,
+		ModelLimits:       modelLimits,
 	}, true
 }
 

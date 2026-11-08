@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MoeForge/moego/ojson"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	_ "github.com/router-for-me/CLIProxyAPI/v8/internal/translator"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
-	"github.com/tidwall/gjson"
 )
 
 // Exercise actual executor translation with synthetic OAuth and loopback upstreams.
@@ -120,15 +120,15 @@ func TestModelCapabilityBoundary(t *testing.T) {
 					if test.provider == "claude" {
 						path = "output_config.effort"
 					}
-					observation, _ := json.Marshal(map[string]string{"provider": test.provider, "model": test.model, "input": effort, "output": gjson.GetBytes(body, path).String(), "outputPath": path, "thinkingMode": gjson.GetBytes(body, "thinking.type").String(), "outcome": "forwarded"})
+					observation, _ := json.Marshal(map[string]string{"provider": test.provider, "model": test.model, "input": effort, "output": ojson.GetBytes(body, path).String(), "outputPath": path, "thinkingMode": ojson.GetBytes(body, "thinking.type").String(), "outcome": "forwarded"})
 					t.Logf("CAPABILITY_OBSERVATION %s", observation)
-					if got := gjson.GetBytes(body, path).String(); got != effort {
-						t.Fatalf("%s = %q, want %q; thinking=%s", path, got, effort, gjson.GetBytes(body, "thinking").Raw)
+					if got := ojson.GetBytes(body, path).String(); got != effort {
+						t.Fatalf("%s = %q, want %q; thinking=%s", path, got, effort, ojson.GetBytes(body, "thinking").Raw)
 					}
-					if test.provider == "claude" && gjson.GetBytes(body, "thinking.type").String() != "adaptive" {
-						t.Fatalf("thinking=%s, want adaptive", gjson.GetBytes(body, "thinking").Raw)
+					if test.provider == "claude" && ojson.GetBytes(body, "thinking.type").String() != "adaptive" {
+						t.Fatalf("thinking=%s, want adaptive", ojson.GetBytes(body, "thinking").Raw)
 					}
-					if len(gjson.GetBytes(body, "tools").Array()) == 0 {
+					if len(ojson.GetBytes(body, "tools").Array()) == 0 {
 						t.Fatal("tool declaration lost")
 					}
 				})

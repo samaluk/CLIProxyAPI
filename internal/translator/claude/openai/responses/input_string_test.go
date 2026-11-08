@@ -3,7 +3,7 @@ package responses
 import (
 	"testing"
 
-	"github.com/tidwall/gjson"
+	"github.com/MoeForge/moego/ojson"
 )
 
 func TestInputStringRemainsAUserMessage(t *testing.T) {
@@ -12,10 +12,10 @@ func TestInputStringRemainsAUserMessage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if gjson.GetBytes(out, "messages.#").Int() != 1 || gjson.GetBytes(out, "messages.0.role").String() != "user" || gjson.GetBytes(out, "messages.0.content").String() != "Reply \"lab-ok\".\nNext line" {
+		if ojson.GetBytes(out, "messages.#").Int() != 1 || ojson.GetBytes(out, "messages.0.role").String() != "user" || ojson.GetBytes(out, "messages.0.content").String() != "Reply \"lab-ok\".\nNext line" {
 			t.Fatalf("plain input disappeared or changed: %s", out)
 		}
-		if gjson.GetBytes(out, "max_tokens").Int() != 64 {
+		if ojson.GetBytes(out, "max_tokens").Int() != 64 {
 			t.Fatalf("output limit lost: %s", out)
 		}
 	}
