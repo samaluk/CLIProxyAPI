@@ -18,6 +18,32 @@ upstream's helper signature and extended to Chat Completions, Gemini and the
 blank-input wire behavior. See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for the
 remaining patch inventory and the decision to keep the revision guards.
 
+The published candidate is
+`ghcr.io/samaluk/cpa-gateway:20261108-lean-1@sha256:0386e68e0c1cdcc845fe1a97c83ed96ca9dffd63793a96f523070b7bd0c72fa6`,
+built from packaging `42f52fec` on Debian with Go 1.26.10, linux/amd64 and
+`GOAMD64=v1`. Core source tree `b07f0c15…`, binary `abc9921e…`. Compared with
+`20261108-upstream-defaults-1`, only `cli-proxy-api`, `provenance.json` and
+`stack.lock.json` differ.
+
+Validation results:
+
+- Focused effort and input regressions pass, and the mutation checks fail as
+  expected. The required server build passes.
+- The pinned Linux full suite passes (103 packages).
+- The macOS full suite fails only `TestServerResponsesWebsocketReauthorizesEachTurn`,
+  the known temp-dir cleanup flake that also reproduces on upstream; it passes
+  when run alone.
+- Affected-package race runs on both hosts fail
+  `TestClaudeCacheControlDocChecksDoNotMaterializeLargeMessagesArray`. Its
+  wall-clock threshold fails under race on clean upstream `681ce41b` as well.
+  On macOS, `TestClaudeExecutorSharedCredentialMetadataMixedAccess` also reports
+  an intermittent data race in unchanged upstream Claude auth code; it reproduces
+  on `681ce41b`. Race runs with only those tests excluded pass.
+- NAS kernel 3.10 preflight, run with network disabled and synthetic
+  credentials, registers all three native plugins and Argon.
+
+Live acceptance is recorded separately.
+
 Backup, refresh-journal and rollback rules from the upstream refresh below still
 apply. Rolling back means reverting both Homelab pins to
 `20261108-upstream-defaults-1`; never restore OAuth state, refresh journals or
