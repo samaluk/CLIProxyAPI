@@ -108,14 +108,12 @@ func HasLevel(levels []string, target string) bool {
 }
 
 // MapToClaudeEffort maps a generic thinking level string to a Claude adaptive
-// thinking effort value, preserving exact levels advertised by the target model.
-// Legacy fallback mappings apply only when the requested level is not advertised.
+// thinking effort value (low/medium/high/max).
+//
+// supportsMax indicates whether the target model supports "max" effort.
 // Returns the mapped effort and true if the level is valid, or ("", false) otherwise.
-func MapToClaudeEffort(level string, supportedLevels []string) (string, bool) {
+func MapToClaudeEffort(level string, supportsMax bool) (string, bool) {
 	level = strings.ToLower(strings.TrimSpace(level))
-	if level != "" && HasLevel(supportedLevels, level) {
-		return level, true
-	}
 	switch level {
 	case "":
 		return "", false
@@ -124,7 +122,7 @@ func MapToClaudeEffort(level string, supportedLevels []string) (string, bool) {
 	case "low", "medium", "high":
 		return level, true
 	case "xhigh", "max":
-		if HasLevel(supportedLevels, "max") {
+		if supportsMax {
 			return "max", true
 		}
 		return "high", true

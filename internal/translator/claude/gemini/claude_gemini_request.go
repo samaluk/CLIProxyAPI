@@ -112,9 +112,11 @@ func convertGeminiRequestToClaude(modelName string, inputRawJSON []byte, stream 
 		if thinkingConfig := genConfig.Get("thinkingConfig"); thinkingConfig.Exists() && thinkingConfig.IsObject() {
 			mi := registry.LookupModelInfo(modelName, "claude")
 			supportsAdaptive := mi != nil && mi.Thinking != nil && len(mi.Thinking.Levels) > 0
+			supportsMax := supportsAdaptive && thinking.HasLevel(mi.Thinking.Levels, string(thinking.LevelMax))
 			supportsDynamic := supportsAdaptive && mi.Thinking.DynamicAllowed
 
-			// Preserve advertised adaptive levels; map legacy aliases only when needed.
+			// MapToClaudeEffort normalizes levels (e.g. minimal→low, xhigh→high) to avoid
+			// validation errors since validate treats same-provider unsupported levels as errors.
 			thinkingLevel := thinkingConfig.Get("thinkingLevel")
 			if !thinkingLevel.Exists() {
 				thinkingLevel = thinkingConfig.Get("thinking_level")
@@ -133,8 +135,10 @@ func convertGeminiRequestToClaude(modelName string, inputRawJSON []byte, stream 
 						_ = outDoc.Delete("thinking.budget_tokens")
 						_ = outDoc.Delete("output_config.effort")
 					default:
-						if mapped, ok := thinking.MapToClaudeEffort(level, mi.Thinking.Levels); ok {
-							level = mapped
+						if !thinking.HasLevel(mi.Thinking.Levels, level) {
+							if mapped, ok := thinking.MapToClaudeEffort(level, supportsMax); ok {
+								level = mapped
+							}
 						}
 						_ = outDoc.Set("thinking.type", "adaptive")
 						_ = outDoc.Delete("thinking.budget_tokens")
@@ -176,8 +180,10 @@ func convertGeminiRequestToClaude(modelName string, inputRawJSON []byte, stream 
 						default:
 							level, ok := thinking.ConvertBudgetToLevel(budget)
 							if ok {
-								if mapped, okM := thinking.MapToClaudeEffort(level, mi.Thinking.Levels); okM {
-									level = mapped
+								if !thinking.HasLevel(mi.Thinking.Levels, level) {
+									if mapped, okM := thinking.MapToClaudeEffort(level, supportsMax); okM {
+										level = mapped
+									}
 								}
 								_ = outDoc.Set("thinking.type", "adaptive")
 								_ = outDoc.Delete("thinking.budget_tokens")
