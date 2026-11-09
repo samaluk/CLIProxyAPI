@@ -1,5 +1,28 @@
 # Start here
 
+## November 8 lean core
+
+`deployment/20261108-lean` replaces only the core with
+`8.0.61-review.0bc7a1a.20261108`. The core is still on the same reviewed upstream
+`681ce41b`; this release retires one redundant fork implementation and adds no
+upstream changes. `Dockerfile.core` now starts from the deployed
+`20261108-upstream-defaults-1` digest. The gateway and all native plugin binaries
+are therefore identical to what currently runs.
+
+The Claude effort helper rewrite and the plain Responses input normalization from
+`51d37962` are gone. The four affected implementation files are byte-identical to
+upstream. Upstream already keeps advertised efforts at each translator call site,
+and its string-input handling produces byte-identical requests for empty,
+whitespace-only, padded and nonempty input. The regressions remain, adapted to
+upstream's helper signature and extended to Chat Completions, Gemini and the
+blank-input wire behavior. See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for the
+remaining patch inventory and the decision to keep the revision guards.
+
+Backup, refresh-journal and rollback rules from the upstream refresh below still
+apply. Rolling back means reverting both Homelab pins to
+`20261108-upstream-defaults-1`; never restore OAuth state, refresh journals or
+binding state.
+
 ## November 8 upstream refresh
 
 `deployment/20261108-upstream-defaults` updates only the core to
