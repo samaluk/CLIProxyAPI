@@ -1,5 +1,49 @@
 # Contributions and deployed forks
 
+## November 8 lean core
+
+Core release `release/20261108-lean` is `release/20261108-upstream-defaults` plus
+`0bc7a1af`, which retires the implementation from `51d37962`. The earlier branch
+and its image stay untouched for rollback.
+
+| Commit | Behavior | Status |
+| --- | --- | --- |
+| `1b04d77d` | Canonical identity and declared plugin capabilities | Retained |
+| `51d37962` | Advertised Claude efforts; plain Responses input | Implementation retired; regressions retained |
+| `7a66a7de` | Antigravity token limits through caches | Retained |
+| `d7cb99e3` | Explicit Codex deployment metadata | Retained |
+| `dcf13b34` | Terminal scheduler policy denials | Retained |
+| `acf864ce` | Finite cooldown expiry restores visibility | Retained |
+| `27d98283` | Monotonic plugin-store update revisions | Retained (see below) |
+| `457078a4` | Cooldown identity for prefixed API aliases | Retained |
+| `3c2c4835` | Error checks in the input-string regression | Retained in that test |
+| `4fb41a12` | Upstream interface, ojson and cache adaptations | Retained |
+
+Effort retirement is exact, not just covered by tests. Every caller lowercases
+and trims the level before mapping, `HasLevel` is case-insensitive, and upstream
+derives max support from the same advertised levels. Upstream translates string
+input directly; the fork's early array normalization produced byte-identical
+requests in 30 probe cases. Those cases covered empty, whitespace-only, padded
+and nonempty strings, with and without instructions, tools and effort.
+
+The pinned contract: nonempty input is forwarded verbatim, including surrounding
+whitespace. Empty or whitespace-only input never becomes user text. With no
+instructions it produces no message; with instructions it produces upstream's
+existing empty placeholder block. That behavior is recorded, not changed.
+Mutation checks confirm the new tests fail when a call site drops advertised
+levels or forwards blank input.
+
+The revision guards stay. The core compiles in the management plugin-store
+install endpoints (`/v0/management/plugin-store/:id/install` and the v8
+`/plugins/store/:id/install`). The NAS enables remote management, and its plugin
+directory is a writable image layer. Those endpoints can change plugins outside
+the pinned image, so this release does not remove the guard that keeps
+upgrade-only installs monotonic and source-matched. It also does not redesign the
+updater.
+
+The offline OpenCode Go catalog, the Go plugin, account binding and the packaged
+CommandCode binary are unchanged. CommandCode is still not configured on the NAS.
+
 ## November 8 runtime refresh
 
 Core release `release/20261108-upstream-defaults` contains upstream main/dev

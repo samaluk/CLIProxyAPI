@@ -1,4 +1,4 @@
-FROM ghcr.io/samaluk/cpa-gateway:20261027-argon-dogfood-1@sha256:39e01aa72d29a0783b9a9eb21b2bd0eb2c661baa38848bf39fade2c49a433517 AS previous
+FROM ghcr.io/samaluk/cpa-gateway:20261108-upstream-defaults-1@sha256:26c2c4bd103677bd9d7f9e6a323c314ae482770c798b57c6477159745195f245 AS previous
 
 FROM golang:1.26.10-bookworm@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS build
 RUN apt-get update && apt-get install -y --no-install-recommends python3 build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
